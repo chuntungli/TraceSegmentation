@@ -156,7 +156,7 @@ class IdList:
 def distance(com1, com2):
     return (len(com1 - com2) + len(com2 - com1)) / (len(com1) + len(com2))
 
-def computeDistMat(seq):
+def compute_distance_matrix(seq):
     n_seq = len(seq)
     dist_mat = np.zeros((n_seq, n_seq))
     for i in range(n_seq-1):
@@ -165,6 +165,13 @@ def computeDistMat(seq):
             dist_mat[i,j] = distance(que, seq[j])
     dist_mat += dist_mat.T
     return dist_mat
+
+def is_subsequence(query, base):
+    l = len(query)
+    for i in range(len(base)):
+        if base[i:i + l] == query:
+            return True
+    return False
 
 for app in apps:
     if app.startswith(','):
@@ -194,7 +201,7 @@ for app in apps:
     # unique_components = list(unique_components)
 
     # Clustering IDs
-    dist_mat = computeDistMat(unique_components)
+    dist_mat = compute_distance_matrix(unique_components)
     model = AgglomerativeClustering(n_clusters=None, affinity='precomputed', linkage='complete', distance_threshold=threshold)
     clustering = model.fit(dist_mat)
     (unique, counts) = np.unique(clustering.labels_, return_counts=True)
@@ -213,7 +220,7 @@ for app in apps:
 
     # Build ID List
     id_list = IdList()
-    id_list.max_gap = 2
+    id_list.max_gap = 3
     id_list.build_list(data)
 
     # Find Closed Sequential Pattern
@@ -231,14 +238,8 @@ for app in apps:
         pattern = id_list.extend_pattern(que_idx)
 
         Z.append(pattern)
-        # Check if pattern is subsequence of another pattern
-        # is_subsequence = False
-        # for z in Z:
-        #
-        # if not is_subsequence:
-        #     Z.append(pattern)
 
-        # # Check if search space can be reduced
+        # Check if search space can be reduced
         pattern_support = pattern[3]
         for candidate in pattern[0]:
             if pattern_support == id_list.phase_support[candidate]:
@@ -247,4 +248,9 @@ for app in apps:
             else:
                 break
 
-    len(Z)
+    # Keep closed pattern only
+    closed_patterns = []
+    for i in range(len(Z)):
+        pattern = Z[i][0]
+        # Check is subsequence of
+        is_subsequence(pattern, Z[i+1][0])
