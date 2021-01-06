@@ -1,12 +1,11 @@
 
 import os
+import copy
 import pickle
 import numpy as np
+from functools import reduce
 from itertools import groupby
 from sklearn.cluster import AgglomerativeClustering
-
-threshold = 0.3
-min_support = 4
 
 archive_url = os.getcwd() + '/components'
 apps = os.listdir(archive_url)
@@ -106,28 +105,23 @@ class IdList:
         return matches
 
     # Extend pattern by depth-first-search manner
-    def __extend_pattern(self, pattern, l_loc, r_loc, que_support):
+    def __extend_pattern(self, pattern, Z, l_loc, r_loc, que_support):
         print('Extend Pattern: %d - %s - %s' % (que_support, r_loc, pattern))
         patterns = [(pattern, l_loc, r_loc, que_support)]
 
-        # Check Left Extention
-        # for candidate in self.LXMap[pattern[0][0]]:
-        #     support = 0
-        #     c_loc = []
-        #     for i in range(self.n_traces):
-        #         matches = self.__matching(self.idList[candidate][i], l_loc[i])
-        #         if len(matches) > 0:
-        #             c_loc.append([x[0] for x in matches])
-        #         else:
-        #             c_loc.append([])
-        #         support += len(matches)
-        #     if support == que_support:
-        #         patterns.append(
-        #             self.__extend_pattern([candidate] + pattern, c_loc, r_loc, que_support)
-        #         )
-
-        # Check Right Extention
+        # Recursive extention to the right
         for candidate in self.RXMap[pattern[-1]]:
+
+            # Check if candidate is a closed pattern with higher support
+            skip_candidate = False
+            for z in Z:
+                if (z[3] > que_support) & (z[0][0] == candidate):
+                    skip_candidate = True
+                    break
+            if skip_candidate:
+                # Skip the candidate as it is contained in another closed pattern with higher support
+                continue
+
             support = 0
             c_loc = []
             for i in range(self.n_traces):
@@ -139,18 +133,20 @@ class IdList:
                 support += len(matches)
             if support == que_support:
                 patterns.append(
-                    self.__extend_pattern(pattern + [candidate], l_loc, c_loc, que_support)
+                    self.__extend_pattern(pattern + [candidate], Z, l_loc, c_loc, que_support)
                 )
 
         pattern_sizes = [len(x[0]) for x in patterns]
-        return patterns[np.argmax(pattern_sizes)]
+        closed_pattern = patterns[np.argmax(pattern_sizes)]
+
+        return closed_pattern
 
     # Find maximum sequential pattern given the starting element
     # Returns: Pattern, l_loc, r_loc, support
-    def extend_pattern(self, que_idx):
+    def extend_pattern(self, que_idx, Z):
         que_idlist = self.idList[que_idx]
         que_support = self.phase_support[que_idx]
-        return self.__extend_pattern([que_idx], que_idlist, que_idlist, que_support)
+        return self.__extend_pattern([que_idx], Z, que_idlist, que_idlist, que_support)
 
 
 def distance(com1, com2):
@@ -167,11 +163,180 @@ def compute_distance_matrix(seq):
     return dist_mat
 
 def is_subsequence(query, base):
-    l = len(query)
-    for i in range(len(base)):
-        if base[i:i + l] == query:
+    l_q = len(query)
+    l_b = len(base)
+    if l_q > l_b:
+        return False
+    for i in range(l_b):
+        if base[i:i + l_q] == query:
             return True
     return False
+
+def __is_intersect(a, b):
+    return (a[1] >= b[0]) and (b[1] >= a[0])
+
+def is_intersect(A, B):
+    for i in range(len(A)):
+        for a in A[i]:
+            for b in B[i]:
+                if __is_intersect(a, b):
+                    print('%s & %s is intersect' % (a,b))
+                    return True
+    return False
+
+def _generateSubgraphs(vertex_list, adjacency_list):
+    subgraphs = []
+    freeVertices = list(np.arange(len(vertex_list)))
+    while freeVertices:
+        freeVertex = freeVertices.pop()
+        subgraph = _constructSubgraph(freeVertex, adjacency_list, [freeVertex])
+        freeVertices = [vertex for vertex in freeVertices if vertex not in subgraph]
+        subgraphs.append(subgraph)
+    return subgraphs
+
+def _constructSubgraph(vertex, adjacencyList, subgraph):
+    neighbors = [vertex for vertex in adjacencyList[vertex] if vertex not in subgraph]
+    if (len(neighbors) == 0):
+        return subgraph
+    else:
+        subgraph = subgraph + neighbors
+        for vertex in neighbors:
+            subgraph = _constructSubgraph(vertex, adjacencyList, subgraph)
+        return subgraph
+
+def _incumb(vertexWeight, adjacencyList):
+    N = len(vertexWeight)
+
+    X = np.zeros(N, dtype=bool)
+    for i in range(N):
+        if (len(adjacencyList[i]) == 0):
+            X[i] = True
+
+    Z = np.zeros(N)
+    for i in range(N):
+        Z[i] = vertexWeight[i] - np.sum(vertexWeight[list(adjacencyList[i])])
+
+    freeVertices = np.where(X == 0)[0]
+    while True:
+        if len(freeVertices) == 0:
+            break;
+        imin = freeVertices[np.argmax(Z[freeVertices])]
+        X[imin] = True
+        freeVertices = freeVertices[freeVertices != imin]
+        X[adjacencyList[imin]] = False
+        freeVertices = freeVertices[~np.isin(freeVertices, adjacencyList[imin])]
+        for i in freeVertices:
+            Z[i] = vertexWeight[i] - np.sum(vertexWeight[np.intersect1d(freeVertices, adjacencyList[i])])
+    return X
+
+def _calculateLB(X, vertexWeight, adjacencyList, visitedVertices=[]):
+    neighbors = np.array([], dtype=int)
+    if (len(adjacencyList[np.where(X == 1)[0]]) > 0):
+        neighbors = reduce(np.union1d, adjacencyList[np.where(X == 1)[0]])
+    if (len(visitedVertices) > 0):
+        neighbors = np.append(neighbors, visitedVertices[np.where(X[visitedVertices] == False)])
+    neighbors = np.unique(neighbors)
+    neighbors = np.array(neighbors, dtype=int)
+    wj = np.sum(vertexWeight[neighbors])
+    return -1 * (np.sum(vertexWeight) - wj)
+
+def _BBND(vertexWeight, adjacencyList, LB, OPT_X):
+    N = len(vertexWeight)
+    X = np.zeros(N)
+    X[:] = np.nan
+    visitedVertices = np.array([], dtype=int)
+    OPT = np.sum(vertexWeight[OPT_X == 1])
+    prob = {'X': [], 'visitedVertices': []}
+    sub_probs = []
+
+    while True:
+        if (np.sum(np.isnan(X)) == 0):
+            if (np.sum(vertexWeight[np.where(X == 1)[0]]) > OPT):
+                OPT = np.sum(vertexWeight[np.where(X == 1)[0]])
+                OPT_X = X
+            if (len(sub_probs) > 0):
+                prob = sub_probs.pop()
+                X = prob['X']
+                visitedVertices = prob['visitedVertices']
+            else:
+                break
+
+        for i in range(N):
+            if (~np.any(X[list(adjacencyList[i])])):
+                X[i] = 1
+                if (not i in visitedVertices):
+                    visitedVertices = np.append(visitedVertices, i)
+
+        Z = np.zeros(N)
+        for i in range(N):
+            Z[i] = vertexWeight[i] - np.sum(vertexWeight[list(adjacencyList[i])])
+        if (len(visitedVertices) > 0):
+            Z[visitedVertices] = np.inf
+        imin = np.argmin(Z)
+
+        visitedVertices = np.append(visitedVertices, imin)
+
+        X[imin] = 0
+        LB0 = _calculateLB(X, vertexWeight, adjacencyList, visitedVertices)
+
+        X[imin] = 1
+        LB1 = _calculateLB(X, vertexWeight, adjacencyList, visitedVertices)
+
+        if (LB0 < LB1):
+            if (LB1 < LB):
+                X[imin] = 1
+                prob['X'] = X.copy()
+                prob['visitedVertices'] = visitedVertices.copy()
+
+                prob['X'][list(adjacencyList[imin])] = 0
+                neighbors = adjacencyList[imin]
+                for i in neighbors:
+                    if (not i in prob['visitedVertices']):
+                        prob['visitedVertices'] = np.append(prob['visitedVertices'], i)
+                if (np.sum(np.isnan(prob['X'])) < 0):
+                    sub_probs.append(prob.copy())
+
+            X[imin] = 0
+        else:
+            if (LB0 < LB):
+                X[imin] = 0
+                prob['X'] = X.copy()
+                prob['visitedVertices'] = visitedVertices.copy()
+                if (np.sum(np.isnan(prob['X'])) < 0):
+                    sub_probs.append(prob.copy())
+            X[imin] = 1
+            X[list(adjacencyList[imin])] = 0
+            neighbors = adjacencyList[imin]
+            for i in neighbors:
+                if (not i in visitedVertices):
+                    visitedVertices = np.append(visitedVertices, i)
+    return OPT_X
+
+
+def MWIS(vertexWeight, adjacencyList):
+    '''
+    :param vertexWeight: List of real-valued vertex weight
+    :param adjacencyList: List of adjacency vertices
+    :return: Maximum sum of weights of the independent set
+    :Note:
+        This is the implementation of the follow publication:
+        Pardalos, P. M., & Desai, N. (1991). An algorithm for finding a maximum weighted independent set in an arbitrary graph.
+        International Journal of Computer Mathematics, 38(3-4), 163-175.
+    '''
+    X = _incumb(vertexWeight, adjacencyList)
+    LB = _calculateLB(X, vertexWeight, adjacencyList)
+    return _BBND(vertexWeight, adjacencyList, LB, X)
+
+'''
+        =================================================================
+                                Main Program
+        =================================================================
+'''
+
+threshold = 0.3
+min_support = 4
+min_method = 10
+max_gap = 2
 
 for app in apps:
     if app.startswith(','):
@@ -220,7 +385,7 @@ for app in apps:
 
     # Build ID List
     id_list = IdList()
-    id_list.max_gap = 3
+    id_list.max_gap = max_gap
     id_list.build_list(data)
 
     # Find Closed Sequential Pattern
@@ -229,14 +394,19 @@ for app in apps:
     # Generate and sort search_space by support
     search_space = np.argsort(list(id_list.phase_support.values()))[::-1]
 
-    # Ignore Ids with only one support
-    n_one = np.sum(np.array(list(id_list.phase_support.values())) <= 1)
-    search_space = list(search_space[:-n_one])
+    # Ignore Ids less than min_support support
+    search_space = list(search_space[:np.sum(np.array(list(id_list.phase_support.values())) >= min_support)])
 
     while len(search_space) > 0:
         que_idx = search_space.pop(0)
-        pattern = id_list.extend_pattern(que_idx)
+        pattern = id_list.extend_pattern(que_idx, Z)
 
+        # Check if pattern satisfy minimum number of methods
+        no_of_methods = np.sum([len(id_list.ids[x]) for x in pattern[0]])
+        if no_of_methods < min_method:
+            continue
+
+        # Pattern is Valid and added to Z
         Z.append(pattern)
 
         # Check if search space can be reduced
@@ -248,9 +418,64 @@ for app in apps:
             else:
                 break
 
+
+    print('Number of Raw Patterns: %d' % len(Z))
     # Keep closed pattern only
+    for i in range(len(Z)-1, 0, -1):
+        for j in range(len(Z)):
+            if i == j:
+                continue
+            # Z[i] and Z[j] have the same support and Z[i] is a subsequence of Z[j]
+            if (Z[i][3] == Z[j][3]) & (is_subsequence(Z[i][0], Z[j][0])):
+                print('Z[%d] is a subsequence of Z[%d]: (%s) and (%s)' % (i, j, Z[i][0], Z[j][0]))
+                # Delete Z[i]
+                del Z[i]
+                break
+
+    print('Number of Closed Patterns: %d' % len(Z))
+
+    # Format Closed Pattern as (Pattern, Positions, Support)
     closed_patterns = []
-    for i in range(len(Z)):
-        pattern = Z[i][0]
-        # Check is subsequence of
-        is_subsequence(pattern, Z[i+1][0])
+    for z in Z:
+        positions = []
+        # For each trace
+        for i in range(id_list.n_traces):
+            positions.append(list(zip(z[1][i], z[2][i])))
+        closed_patterns.append((z[0], positions, z[3]))
+    closed_patterns = np.array(closed_patterns, dtype=object)
+
+    # Vertex list contains the weight of the phase
+    # Edge list contains relationship among phases if two phases are overlapped
+    vertex_list = []
+    edge_list = []
+    for i in range(len(closed_patterns)):
+        # Weight is defined as the number_of_method * support_of_phase
+        vertex_list.append(len(closed_patterns[i][0]) * closed_patterns[i][2])
+        for j in range(i+1, len(closed_patterns)):
+            if is_intersect(closed_patterns[i][1], closed_patterns[j][1]):
+                print('%d and %d are overlapped' % (i, j))
+                edge_list.append((i,j))
+                edge_list.append((j,i))
+                break
+    vertex_list = np.array(vertex_list)
+    edge_list = np.array(edge_list)
+
+    adjacency_list = [[] for __ in vertex_list]
+    for edge in edge_list:
+        adjacency_list[edge[0]].append(edge[1])
+    adjacency_list = np.array(adjacency_list, dtype=object)
+
+    subgraphs = _generateSubgraphs(vertex_list, adjacency_list)
+
+    solution = np.zeros(len(vertex_list), dtype=bool)
+    for subgraph in subgraphs:
+        vl = np.array(copy.deepcopy(vertex_list[subgraph]))
+        al = np.array(copy.deepcopy(adjacency_list[subgraph]))
+        for i in range(len(al)):
+            for j in range(len(al[i])):
+                al[i][j] = np.where(subgraph == al[i][j])[0][0]
+        OPT_X = MWIS(vl, al)
+        solution[subgraph] = OPT_X
+
+    patterns = closed_patterns[solution]
+
