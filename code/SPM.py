@@ -333,9 +333,9 @@ def MWIS(vertexWeight, adjacencyList):
         =================================================================
 '''
 
-threshold = 0.3
-min_support = 4
-min_method = 10
+threshold = 0.2
+min_support = 2
+min_method = 15
 max_gap = 2
 
 for app in apps:
@@ -343,7 +343,7 @@ for app in apps:
         continue
 
     app_folder = '%s/%s' % (archive_url, app)
-    traces = os.listdir(app_folder)
+    traces = sorted(os.listdir(app_folder))
 
     data = []
     trace_idx = 0
@@ -479,3 +479,13 @@ for app in apps:
 
     patterns = closed_patterns[solution]
 
+# Print Pattern Result
+for p in patterns:
+    print('Pattern: %s' % p[0])
+    print('Support: %d' % p[2])
+    print('Locations:')
+    for i in range(len(p[1])):
+        print('  Trace %d: %s' % (i, p[1][i]))
+
+import random
+sorted(random.sample(range(1,50), 6))

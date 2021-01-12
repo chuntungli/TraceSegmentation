@@ -140,7 +140,7 @@ if __name__ == '__main__':
                 except:
                     method_names.append(method_name)
 
-            trace = trace.split('_')[1]
+            # trace = trace.split('_')[1]
 
             '''
             =============================================================
@@ -213,7 +213,7 @@ if __name__ == '__main__':
             pickle.dump(components, open('%s/%s.p' % (folder, trace), "wb"))
             # Read with pickle
             # components = pickle.load(open('components_%s_%s.p' % (app, trace), "rb"))
-
+            #
             # pos = graphviz_layout(G, prog='dot')
             #
             # fig = plt.figure(figsize=(100, 5), dpi=30)
