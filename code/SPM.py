@@ -3,6 +3,8 @@ import os
 import copy
 import pickle
 import numpy as np
+
+from spmf import Spmf
 from functools import reduce
 from itertools import groupby
 from sklearn.cluster import AgglomerativeClustering
@@ -333,9 +335,9 @@ def MWIS(vertexWeight, adjacencyList):
         =================================================================
 '''
 
-threshold = 0.2
-min_support = 2
-min_method = 15
+threshold = 0.1
+min_support = 5
+min_method = 30
 max_gap = 2
 
 for app in apps:
@@ -443,6 +445,36 @@ for app in apps:
             positions.append(list(zip(z[1][i], z[2][i])))
         closed_patterns.append((z[0], positions, z[3]))
     closed_patterns = np.array(closed_patterns, dtype=object)
+
+    '''
+            Testing Simple Approach With VMSP
+    '''
+    # Represent Data by ID-List IDs
+    temp_data = []
+    for trace in data:
+        temp_trace = []
+        for event in trace:
+            temp_trace.append(id_list.ids.index(event))
+        temp_data.append(temp_trace)
+
+    # Write data to file
+    f = open("%s.txt" % app, "w+")
+    for trace in temp_data:
+        for i in range(len(trace)):
+            f.write('%d -1 ' % trace[i])
+        f.write('-2\r\n')
+    f.close()
+
+    spmf = Spmf("VMSP", input_filename="%s.txt" % app, output_filename="output.txt",
+                arguments=['26%', 20, 3, False])
+    # spmf = Spmf("SPAM", input_filename="com.angkorworld.memo.txt", output_filename="output.txt", arguments=[0.5, 2, 50, 1, False])
+    # spmf = Spmf("VMSP", input_filename="contextPrefixSpan.txt", output_filename="output.txt", arguments=[0.5])
+    spmf.run()
+    print(spmf.to_pandas_dataframe(pickle=True))
+
+    '''
+            End Testing Simple Approach With VMSP
+    '''
 
     # Vertex list contains the weight of the phase
     # Edge list contains relationship among phases if two phases are overlapped
