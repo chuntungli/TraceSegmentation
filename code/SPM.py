@@ -17,6 +17,25 @@ apps = os.listdir(archive_url)
 # ====================================================================
 class IdList:
 
+    class Pattern:
+        def __init__(self):
+            self.pattern = []
+            self.l_loc = []
+            self.r_loc = []
+            self.support = 0
+
+        def __init__(self, pattern, l_loc, r_loc, support):
+            self.pattern = pattern
+            self.l_loc = l_loc
+            self.r_loc = r_loc
+            self.support = support
+
+        def __eq__(self, other):
+            return self.pattern == other.pattern
+
+        def __hash__(self):
+            return hash(str(self.pattern))
+
     def __init__(self):
         self.max_gap = 1  # Gap is 1 by default
         self.__reset()
@@ -28,8 +47,7 @@ class IdList:
         self.idList = {}            # Actual Data Structure
                                     #           ID
                                     # tid   |   Occurence
-        self.RXMap = {}             # Right-eXtention-Map indicate pairwise extention relationship
-        self.LXMap = {}             # Left-eXtention-Map indicate pairwise extention relationship
+        self.XMap = {}              # eXtention-Map indicate pairwise extention relationship
 
     def __add_phase(self, phase):
         if phase in self.ids:
@@ -39,8 +57,7 @@ class IdList:
         idx = self.ids.index(phase)
         self.phase_support[idx] = 0
         self.idList[idx] = [[] for _ in range(self.n_traces)]
-        self.LXMap[idx] = set()
-        self.RXMap[idx] = set()
+        self.XMap[idx] = set()
 
     # Construct the Id List given the list of preliminary phases as list of sets: [{phase_1}, {phase_2}, ..., {phase_n}]
     def build_list(self, traces):
@@ -70,25 +87,19 @@ class IdList:
 
                 # Update Extention Map
                 for gap in range(1, self.max_gap + 1):
-                    # Left Extention
-                    idx = event_idx - gap
-                    if idx >= 0:
-                        self.LXMap[phase_idx].add(self.ids.index(trace[idx]))
-                    # Righ Extention
+                    # Extention
                     idx = event_idx + gap
                     if idx < len(trace):
                         # Check if phase already exists in ids
                         if trace[idx] not in self.ids:
                             self.__add_phase(trace[idx])
-                        self.RXMap[phase_idx].add(self.ids.index(trace[idx]))
+                        self.XMap[phase_idx].add(self.ids.index(trace[idx]))
             trace_idx += 1
 
         # Clean Extention Map from removing self-extention
         for i in range(len(self.ids)):
-            if i in self.LXMap[i]:
-                self.LXMap[i].remove(i)
-            if i in self.RXMap[i]:
-                self.RXMap[i].remove(i)
+            if i in self.XMap[i]:
+                self.XMap[i].remove(i)
 
     # Matching between a and b where elements of a should greater than b
     def __matching(self, l_loc, r_loc):
@@ -108,16 +119,20 @@ class IdList:
 
     # Extend pattern by depth-first-search manner
     def __extend_pattern(self, pattern, Z, l_loc, r_loc, que_support):
-        print('Extend Pattern: %d - %s - %s' % (que_support, r_loc, pattern))
-        patterns = [(pattern, l_loc, r_loc, que_support)]
+        # print('Extend Pattern: %d - %s - %s' % (que_support, r_loc, pattern))
+        patterns = set()
 
         # Recursive extention to the right
-        for candidate in self.RXMap[pattern[-1]]:
+        for candidate in self.XMap[pattern[-1]]:
+
+            # Skip if candidate is not as frequent as current pattern
+            if self.phase_support[candidate] < que_support:
+                continue
 
             # Check if candidate is a closed pattern with higher support
             skip_candidate = False
             for z in Z:
-                if (z[3] > que_support) & (z[0][0] == candidate):
+                if (z.support > que_support) & (z.pattern[0] == candidate):
                     skip_candidate = True
                     break
             if skip_candidate:
@@ -134,22 +149,19 @@ class IdList:
                     c_loc.append([])
                 support += len(matches)
             if support == que_support:
-                patterns.append(
-                    self.__extend_pattern(pattern + [candidate], Z, l_loc, c_loc, que_support)
-                )
+                patterns.update(self.__extend_pattern(pattern + [candidate], Z, l_loc, c_loc, que_support))
 
-        pattern_sizes = [len(x[0]) for x in patterns]
-        closed_pattern = patterns[np.argmax(pattern_sizes)]
+        if len(patterns) == 0:
+            patterns.add(self.Pattern(pattern, l_loc, r_loc, que_support))
 
-        return closed_pattern
+        return patterns
 
     # Find maximum sequential pattern given the starting element
     # Returns: Pattern, l_loc, r_loc, support
     def extend_pattern(self, que_idx, Z):
         que_idlist = self.idList[que_idx]
         que_support = self.phase_support[que_idx]
-        return self.__extend_pattern([que_idx], Z, que_idlist, que_idlist, que_support)
-
+        return list(self.__extend_pattern([que_idx], Z, que_idlist, que_idlist, que_support))
 
 def distance(com1, com2):
     return (len(com1 - com2) + len(com2 - com1)) / (len(com1) + len(com2))
@@ -337,7 +349,7 @@ def MWIS(vertexWeight, adjacencyList):
 
 threshold = 0.1
 min_support = 5
-min_method = 30
+min_method = 20
 max_gap = 2
 
 for app in apps:
@@ -401,25 +413,25 @@ for app in apps:
 
     while len(search_space) > 0:
         que_idx = search_space.pop(0)
-        pattern = id_list.extend_pattern(que_idx, Z)
+        patterns = id_list.extend_pattern(que_idx, Z)
 
         # Check if pattern satisfy minimum number of methods
-        no_of_methods = np.sum([len(id_list.ids[x]) for x in pattern[0]])
-        if no_of_methods < min_method:
-            continue
+        for pattern in patterns:
+            no_of_methods = np.sum([len(id_list.ids[x]) for x in pattern.pattern])
+            if no_of_methods < min_method:
+                continue
 
-        # Pattern is Valid and added to Z
-        Z.append(pattern)
+            # Pattern is Valid and added to Z
+            Z.append(pattern)
 
-        # Check if search space can be reduced
-        pattern_support = pattern[3]
-        for candidate in pattern[0]:
-            if pattern_support == id_list.phase_support[candidate]:
-                if candidate in search_space:
-                    search_space.remove(candidate)
-            else:
-                break
-
+            # Check if search space can be reduced
+            pattern_support = pattern.support
+            for candidate in pattern.pattern:
+                if pattern_support == id_list.phase_support[candidate]:
+                    if candidate in search_space:
+                        search_space.remove(candidate)
+                else:
+                    break
 
     print('Number of Raw Patterns: %d' % len(Z))
     # Keep closed pattern only
@@ -428,12 +440,11 @@ for app in apps:
             if i == j:
                 continue
             # Z[i] and Z[j] have the same support and Z[i] is a subsequence of Z[j]
-            if (Z[i][3] == Z[j][3]) & (is_subsequence(Z[i][0], Z[j][0])):
-                print('Z[%d] is a subsequence of Z[%d]: (%s) and (%s)' % (i, j, Z[i][0], Z[j][0]))
+            if (Z[i].support == Z[j].support) & (is_subsequence(Z[i].pattern, Z[j].pattern)):
+                print('Z[%d] is a subsequence of Z[%d]: (%s) and (%s)' % (i, j, Z[i].pattern, Z[j].pattern))
                 # Delete Z[i]
                 del Z[i]
                 break
-
     print('Number of Closed Patterns: %d' % len(Z))
 
     # Format Closed Pattern as (Pattern, Positions, Support)
@@ -442,39 +453,9 @@ for app in apps:
         positions = []
         # For each trace
         for i in range(id_list.n_traces):
-            positions.append(list(zip(z[1][i], z[2][i])))
-        closed_patterns.append((z[0], positions, z[3]))
+            positions.append(list(zip(z.l_loc[i], z.r_loc[i])))
+        closed_patterns.append((z.pattern, positions, z.support))
     closed_patterns = np.array(closed_patterns, dtype=object)
-
-    '''
-            Testing Simple Approach With VMSP
-    '''
-    # Represent Data by ID-List IDs
-    temp_data = []
-    for trace in data:
-        temp_trace = []
-        for event in trace:
-            temp_trace.append(id_list.ids.index(event))
-        temp_data.append(temp_trace)
-
-    # Write data to file
-    f = open("%s.txt" % app, "w+")
-    for trace in temp_data:
-        for i in range(len(trace)):
-            f.write('%d -1 ' % trace[i])
-        f.write('-2\r\n')
-    f.close()
-
-    spmf = Spmf("VMSP", input_filename="%s.txt" % app, output_filename="output.txt",
-                arguments=['26%', 20, 3, False])
-    # spmf = Spmf("SPAM", input_filename="com.angkorworld.memo.txt", output_filename="output.txt", arguments=[0.5, 2, 50, 1, False])
-    # spmf = Spmf("VMSP", input_filename="contextPrefixSpan.txt", output_filename="output.txt", arguments=[0.5])
-    spmf.run()
-    print(spmf.to_pandas_dataframe(pickle=True))
-
-    '''
-            End Testing Simple Approach With VMSP
-    '''
 
     # Vertex list contains the weight of the phase
     # Edge list contains relationship among phases if two phases are overlapped
@@ -483,12 +464,11 @@ for app in apps:
     for i in range(len(closed_patterns)):
         # Weight is defined as the number_of_method * support_of_phase
         vertex_list.append(len(closed_patterns[i][0]) * closed_patterns[i][2])
-        for j in range(i+1, len(closed_patterns)):
+        for j in range(i + 1, len(closed_patterns)):
             if is_intersect(closed_patterns[i][1], closed_patterns[j][1]):
                 print('%d and %d are overlapped' % (i, j))
-                edge_list.append((i,j))
-                edge_list.append((j,i))
-                break
+                edge_list.append((i, j))
+                edge_list.append((j, i))
     vertex_list = np.array(vertex_list)
     edge_list = np.array(edge_list)
 
@@ -510,6 +490,36 @@ for app in apps:
         solution[subgraph] = OPT_X
 
     patterns = closed_patterns[solution]
+
+    '''
+            Testing Simple Approach With VMSP
+    '''
+    # Represent Data by ID-List IDs
+    temp_data = []
+    for trace in data:
+        temp_trace = []
+        for event in trace:
+            temp_trace.append(id_list.ids.index(event))
+        temp_data.append(temp_trace)
+
+    # Write data to file
+    f = open("%s.txt" % app, "w+")
+    for trace in temp_data:
+        for i in range(len(trace)):
+            f.write('%d -1 ' % trace[i])
+        f.write('-2\r\n')
+    f.close()
+
+    # spmf = Spmf("VMSP", input_filename="%s.txt" % app, output_filename="output.txt", arguments=['26%', 20, 2, False])
+    # spmf = Spmf("SPAM", input_filename="%s.txt" % app, output_filename="output.txt", arguments=[0.26, 5, 20, 2, False])
+    # # spmf = Spmf("VMSP", input_filename="contextPrefixSpan.txt", output_filename="output.txt", arguments=[0.5])
+    # spmf.run()
+    # print(spmf.to_pandas_dataframe(pickle=True))
+
+    '''
+            End Testing Simple Approach With VMSP
+    '''
+
 
 # Print Pattern Result
 for p in patterns:
