@@ -4,7 +4,7 @@ import copy
 import pickle
 import numpy as np
 
-from spmf import Spmf
+# from spmf import Spmf
 from functools import reduce
 from itertools import groupby
 from sklearn.cluster import AgglomerativeClustering
@@ -525,7 +525,7 @@ for app in apps:
 for p in patterns:
     print('Pattern: %s' % p[0])
     print('Support: %d' % p[2])
-    print('Locations:')
+    print('Positions:')
     for i in range(len(p[1])):
         print('  Trace %d: %s' % (i, p[1][i]))
 
