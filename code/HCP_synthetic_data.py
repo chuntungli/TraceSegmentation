@@ -3,6 +3,7 @@ import copy
 import math
 import random
 import pickle
+import shutil
 import numpy as np
 import itertools
 
@@ -13,11 +14,11 @@ seed = 42
 '''
 
 # Number of patterns
-patternUniqueAmount = 20
+patternUniqueAmount = 10
 
 # Distribution of number of phases in patterns
-patternNum_mu = 10
-patternNum_sigma = 3
+patternNum_mu = 5
+patternNum_sigma = 1
 
 # Number of unique methods
 methodUniqueAmount = 9999
@@ -38,12 +39,12 @@ phaseRep_sigma = 0
 '''
 
 # Distribution of number of patterns repeated
-patternRep_mu = 6
-patternRep_sigma = 2
+patternRep_mu = 5
+patternRep_sigma = 1
 
 # Distribution of number of patterns in sequences
-patternInSeq_mu = 6
-patternInSeq_sigma = 2
+patternInSeq_mu = 5
+patternInSeq_sigma = 1
 
 # Total number of sequence required in DB
 # pattern number divided by pattern in sequence
@@ -136,9 +137,10 @@ def sequenceDB_and_dict(patternSet,pattern_temp,patternInSeq_mu,patternInSeq_sig
 
     ## Randomize number of patterns in sequence by Norm dist
     np.random.seed(seed)
-#     seqNormNum = np.random.normal(patternInSeq_mu,patternInSeq_sigma,patternUniqueAmount)
-    seqNormNum = np.random.normal(patternInSeq_mu,patternInSeq_sigma,sequence_in_db)
+    seqNormNum = np.random.normal(patternInSeq_mu,patternInSeq_sigma,sequence_in_db-1)
     seqNormInt = np.round(seqNormNum).astype(int)
+    if len(pattern_temp) - sum(seqNormInt) > 0:
+        seqNormInt.append(len(pattern_temp) - sum(seqNormInt))
 
     ## Create dictionary for groundtruth
     pattern_index = list(range(0, len(patternSet)))
@@ -202,13 +204,13 @@ def sequenceDB_and_dict(patternSet,pattern_temp,patternInSeq_mu,patternInSeq_sig
 method = method_pool(methodUniqueAmount, seed)
 phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, seed)
 pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, seed)
-pattern_set, pattern_no  = pattern_pool(pattern, phase, patternRep_mu, patternRep_sigma, len(pattern), seed)
+pattern_set, pattern_no = pattern_pool(pattern, phase, patternRep_mu, patternRep_sigma, len(pattern), seed)
 sequence_number_in_db = math.floor(len(pattern_no)/patternInSeq_mu)
 pattern_dictionary, sequence_database, sequence_database_list =  sequenceDB_and_dict(pattern_set,pattern_no,patternInSeq_mu,patternInSeq_sigma,sequence_number_in_db,seed)
 
 # Print seqDB
 for i in range(len(sequence_database)):
-    print('Trace %d: %s' % (i, sequence_database[i]))
+    print('Trace %d: %s' % (i, len(sequence_database[i])))
 
 # Print Pattern Result
 for key in pattern_dictionary:
@@ -219,14 +221,16 @@ for key in pattern_dictionary:
 
 # Write with pickle
 folder = 'components/synthetic'
-if not os.path.exists(folder):
-    os.makedirs(folder)
+if os.path.exists(folder):
+    shutil.rmtree(folder)
+os.makedirs(folder)
 for i in range(len(sequence_database)):
     pickle.dump(sequence_database[i], open('%s/seq_%d.p' % (folder, i), "wb"))
 
 # Write with pickle
 groundtruths = list(pattern_dictionary.values())
 folder = 'data/synthetic'
-if not os.path.exists(folder):
-    os.makedirs(folder)
+if os.path.exists(folder):
+    shutil.rmtree(folder)
+os.makedirs(folder)
 pickle.dump(groundtruths, open('%s/groundtruths.p' % folder, "wb"))
