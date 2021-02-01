@@ -129,14 +129,22 @@ class IdList:
             if self.phase_support[candidate] < que_support:
                 continue
 
-            # Check if candidate is a closed pattern with higher support
             skip_candidate = False
+
+            # Check if candidate is a closed pattern with higher support
             for z in Z:
                 if (z.support > que_support) & (z.pattern[0] == candidate):
                     skip_candidate = True
                     break
             if skip_candidate:
-                # Skip the candidate as it is contained in another closed pattern with higher support
+                continue
+
+            # Check if candidate sequence is subsequence of found patterns
+            extend_pattern = pattern + [candidate]
+            for p in patterns:
+                if is_subsequence(extend_pattern, p.pattern):
+                    skip_candidate = True
+            if skip_candidate:
                 continue
 
             support = 0
@@ -177,14 +185,28 @@ def compute_distance_matrix(seq):
     return dist_mat
 
 def is_subsequence(query, base):
-    l_q = len(query)
-    l_b = len(base)
-    if l_q > l_b:
-        return False
-    for i in range(l_b):
-        if base[i:i + l_q] == query:
-            return True
-    return False
+    # For strictly subsequences (a_i = b_j, a_i+1 = b_j+1, ...)
+    # l_q = len(query)
+    # l_b = len(base)
+    # if l_q > l_b:
+    #     return False
+    # for i in range(l_b):
+    #     if base[i:i + l_q] == query:
+    #         return True
+    # return False
+
+    # For normal subsequences
+    m = len(query)
+    n = len(base)
+    i = j = 0
+
+    while j < m and i < n:
+        if query[j] == base[i]:
+            j = j + 1
+        i = i + 1
+
+    # If all characters of str1 matched, then j is equal to m
+    return j == m
 
 def __is_intersect(a, b):
     return (a[1] >= b[0]) and (b[1] >= a[0])
@@ -350,7 +372,7 @@ def MWIS(vertexWeight, adjacencyList):
 threshold = 0.1
 min_support = 5
 min_method = 20
-max_gap = 2
+max_gap = 5
 
 for app in apps:
     if app.startswith(','):
