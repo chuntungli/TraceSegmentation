@@ -37,10 +37,10 @@ class IdList:
             return hash(str(self.pattern))
 
     def __init__(self):
-        self.max_gap = 1  # Gap is 1 by default
         self.__reset()
 
     def __reset(self):
+        self.max_gap = 1
         self.n_traces = 0           # Number of traces
         self.ids = []               # Preliminary Phase IDs
         self.phase_support = {}     # Support of each phase
@@ -51,7 +51,7 @@ class IdList:
 
     def __add_phase(self, phase):
         if phase in self.ids:
-            print('Phase already exists, do nothing.')
+            return
 
         self.ids.append(phase)
         idx = self.ids.index(phase)
@@ -60,8 +60,10 @@ class IdList:
         self.XMap[idx] = set()
 
     # Construct the Id List given the list of preliminary phases as list of sets: [{phase_1}, {phase_2}, ..., {phase_n}]
-    def build_list(self, traces):
+    def build_list(self, traces, max_gap = 1):
         self.__reset()
+
+        self.max_gap = max_gap
 
         self.n_traces = len(traces)
 
@@ -83,7 +85,7 @@ class IdList:
 
                 # Insert to IdList
                 self.idList[phase_idx][trace_idx].append(event_idx)
-                self.phase_support[phase_idx] += 1
+                # self.phase_support[phase_idx] += 1
 
                 # Update Extention Map
                 for gap in range(1, self.max_gap + 1):
@@ -97,9 +99,13 @@ class IdList:
             trace_idx += 1
 
         # Clean Extention Map from removing self-extention
+        # for i in range(len(self.ids)):
+        #     if i in self.XMap[i]:
+        #         self.XMap[i].remove(i)
+
+        # Compute Support of phases
         for i in range(len(self.ids)):
-            if i in self.XMap[i]:
-                self.XMap[i].remove(i)
+            self.phase_support[i] = np.sum([len(x) for x in self.idList[i]]) / self.n_traces
 
     # Matching between a and b where elements of a should greater than b
     def __matching(self, l_loc, r_loc):
@@ -110,7 +116,7 @@ class IdList:
             if diff <= 0:                    # r_loc < l_loc
                 r_idx += 1
             elif diff <= self.max_gap:      # r_loc > l_loc & diff(r_loc, l_loc) <= max_gap
-                matches.append((l_loc[l_idx], r_loc[r_idx]))
+                matches.append((r_idx, r_loc[r_idx]))
                 l_idx += 1
                 r_idx += 1
             else:                           # r_loc > l_loc & diff(r_loc, l_loc) > max_gap
@@ -118,46 +124,51 @@ class IdList:
         return matches
 
     # Extend pattern by depth-first-search manner
-    def __extend_pattern(self, pattern, Z, l_loc, r_loc, que_support):
-        # print('Extend Pattern: %d - %s - %s' % (que_support, r_loc, pattern))
+    def __extend_pattern(self, pattern, Z, l_loc, r_loc, min_support, que_support):
+        print('Extend Pattern: %.2f - %s' % (min_support, pattern))
         patterns = set()
 
         # Recursive extention to the right
         for candidate in self.XMap[pattern[-1]]:
 
             # Skip if candidate is not as frequent as current pattern
-            if self.phase_support[candidate] < que_support:
-                continue
+            # if self.phase_support[candidate] < min_support:
+            #     continue
 
             skip_candidate = False
 
             # Check if candidate is a closed pattern with higher support
-            for z in Z:
-                if (z.support > que_support) & (z.pattern[0] == candidate):
-                    skip_candidate = True
-                    break
-            if skip_candidate:
-                continue
+            # for z in Z:
+            #     if (z.support > que_support) & (z.pattern[0] == candidate):
+            #         skip_candidate = True
+            #         break
+            # if skip_candidate:
+            #     continue
 
             # Check if candidate sequence is subsequence of found patterns
-            extend_pattern = pattern + [candidate]
-            for p in patterns:
-                if is_subsequence(extend_pattern, p.pattern):
-                    skip_candidate = True
-            if skip_candidate:
-                continue
+            # extend_pattern = pattern + [candidate]
+            # for p in patterns:
+            #     if is_subsequence(extend_pattern, p.pattern):
+            #         skip_candidate = True
+            # if skip_candidate:
+            #     continue
 
+            # Compute support of pattern
             support = 0
-            c_loc = []
+            xl_loc = []
+            xr_loc = []
             for i in range(self.n_traces):
                 matches = self.__matching(r_loc[i], self.idList[candidate][i])
                 if len(matches) > 0:
-                    c_loc.append([x[1] for x in matches])
+                    xl_loc.append([x[0] for x in matches])
+                    xr_loc.append([x[1] for x in matches])
                 else:
-                    c_loc.append([])
-                support += len(matches)
-            if support == que_support:
-                patterns.update(self.__extend_pattern(pattern + [candidate], Z, l_loc, c_loc, que_support))
+                    xl_loc.append([])
+                    xr_loc.append([])
+                # support += len(matches)
+            support = sum([len(x) > 0 for x in matches])
+            if support >= min_support:
+                patterns.update(self.__extend_pattern(pattern + [candidate], Z, xl_loc, xr_loc, min_support, support))
 
         if len(patterns) == 0:
             patterns.add(self.Pattern(pattern, l_loc, r_loc, que_support))
@@ -166,10 +177,10 @@ class IdList:
 
     # Find maximum sequential pattern given the starting element
     # Returns: Pattern, l_loc, r_loc, support
-    def extend_pattern(self, que_idx, Z):
+    def extend_pattern(self, que_idx, Z, min_support):
         que_idlist = self.idList[que_idx]
         que_support = self.phase_support[que_idx]
-        return list(self.__extend_pattern([que_idx], Z, que_idlist, que_idlist, que_support))
+        return list(self.__extend_pattern([que_idx], Z, que_idlist, que_idlist, min_support, que_support))
 
 def distance(com1, com2):
     return (len(com1 - com2) + len(com2 - com1)) / (len(com1) + len(com2))
@@ -369,10 +380,10 @@ def MWIS(vertexWeight, adjacencyList):
         =================================================================
 '''
 
-threshold = 0.1
-min_support = 5
-min_method = 20
-max_gap = 1
+threshold = 0.2
+min_support = 0.3
+min_method = 1
+max_gap = 2
 
 for app in apps:
     if app.startswith(','):
@@ -419,10 +430,18 @@ for app in apps:
                 if trace[i] in cluster_instances:
                     trace[i] = cluster_head
 
+    # Convert the trace only preserve the first occuring phase
+    sequence_db = []
+    for trace in data:
+        sequence = []
+        for i in range(len(trace)):
+            if trace[i] not in sequence:
+                sequence.append(trace[i])
+        sequence_db.append(sequence)
+
     # Build ID List
     id_list = IdList()
-    id_list.max_gap = max_gap
-    id_list.build_list(data)
+    id_list.build_list(sequence_db, max_gap)
 
     # Find Closed Sequential Pattern
     Z = []  # Maximum Sequential Pattern
@@ -435,7 +454,7 @@ for app in apps:
 
     while len(search_space) > 0:
         que_idx = search_space.pop(0)
-        patterns = id_list.extend_pattern(que_idx, Z)
+        patterns = id_list.extend_pattern(que_idx, Z, min_support)
 
         # Check if pattern satisfy minimum number of methods
         for pattern in patterns:
@@ -447,13 +466,13 @@ for app in apps:
             Z.append(pattern)
 
             # Check if search space can be reduced
-            pattern_support = pattern.support
-            for candidate in pattern.pattern:
-                if pattern_support == id_list.phase_support[candidate]:
-                    if candidate in search_space:
-                        search_space.remove(candidate)
-                else:
-                    break
+            # pattern_support = pattern.support
+            # for candidate in pattern.pattern:
+            #     if pattern_support == id_list.phase_support[candidate]:
+            #         if candidate in search_space:
+            #             search_space.remove(candidate)
+            #     else:
+            #         break
 
     print('Number of Raw Patterns: %d' % len(Z))
     # Keep closed pattern only
@@ -497,7 +516,7 @@ for app in apps:
     adjacency_list = [[] for __ in vertex_list]
     for edge in edge_list:
         adjacency_list[edge[0]].append(edge[1])
-    adjacency_list = np.array(adjacency_list, dtype=object)
+    adjacency_list = np.array(adjacency_list)
 
     subgraphs = _generateSubgraphs(vertex_list, adjacency_list)
 
@@ -532,9 +551,8 @@ for app in apps:
         f.write('-2\r\n')
     f.close()
 
-    spmf = Spmf("VMSP", input_filename="%s.txt" % app, output_filename="output.txt", arguments=['26%', 20, max_gap, False])
-    # spmf = Spmf("SPAM", input_filename="%s.txt" % app, output_filename="output.txt", arguments=[0.26, 5, 20, 2, False])
-    # # spmf = Spmf("VMSP", input_filename="contextPrefixSpan.txt", output_filename="output.txt", arguments=[0.5])
+    spmf = Spmf("VMSP", input_filename="%s.txt" % app, output_filename="output.txt", arguments=['40%', 500, max_gap, False])
+    # spmf = Spmf("SPAM", input_filename="%s.txt" % app, output_filename="output.txt", arguments=[0.6, 5, 500, max_gap, False])
     spmf.run()
     print(spmf.to_pandas_dataframe(pickle=True))
 
@@ -553,3 +571,5 @@ for p in patterns:
 
 import random
 sorted(random.sample(range(1,50), 6))
+
+29, 35, 36, 37, 38, 39, 40, 41, 42, 39, 40, 42, 43, 42, 41, 39, 40, 41, 42, 39, 40, 42, 43, 39, 40, 42, 39, 40, 42, 43, 44, 43, 45, 46, 47, 1, 2, 48, 4, 5, 6, 4, 5, 6, 16, 17, 18, 6, 7, 8, 9, 10, 9, 10, 6, 11, 6, 11, 6, 12, 13, 12, 14, 9, 10, 9, 10, 6, 9, 10, 9, 10, 9, 6, 15, 16, 17, 18, 16, 17, 18, 16, 17, 18, 16, 17, 18
