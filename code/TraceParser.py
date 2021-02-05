@@ -2,6 +2,7 @@
 
 
 import os
+import csv
 import time
 import json
 import pickle
@@ -10,6 +11,7 @@ import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
 
+from itertools import groupby
 from networkx.drawing.nx_pydot import graphviz_layout
 
 pd.options.display.max_colwidth = 200
@@ -211,22 +213,34 @@ if __name__ == '__main__':
             if not os.path.exists(folder):
                 os.makedirs(folder)
             pickle.dump(components, open('%s/%s.p' % (folder, trace), "wb"))
+
             # Read with pickle
             # components = pickle.load(open('components_%s_%s.p' % (app, trace), "rb"))
-            #
-            # pos = graphviz_layout(G, prog='dot')
-            #
-            # fig = plt.figure(figsize=(100, 5), dpi=30)
-            # # nx.draw(graph, pos, **options)
-            # nx.draw_networkx_edges(G, pos, edge_color='dimgray', width=1)
-            # nx.draw_networkx_nodes(G, pos, node_color='skyblue', node_size=200)
-            # nx.draw_networkx_labels(G, pos, labels, font_size=8)
-            # nx.draw_networkx_edge_labels(G, pos, edge_labels=nx.get_edge_attributes(G, 'weight'))
-            # plt.title('%s %s' % (app, trace))
-            # plt.tight_layout()
-            # fig.savefig('plots/%s/%s_DCT.pdf' % (app, trace), dpi=30)
-            # plt.show()
-            # plt.close(fig)
+
+            # For analysis
+            folder = 'plots/%s/' % app
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+            pos = graphviz_layout(G, prog='dot')
+            fig = plt.figure(figsize=(len(components), 7), dpi=30)
+            # nx.draw(graph, pos, **options)
+            nx.draw_networkx_edges(G, pos, edge_color='dimgray', width=1)
+            nx.draw_networkx_nodes(G, pos, node_color='skyblue', node_size=200)
+            nx.draw_networkx_labels(G, pos, labels, font_size=8)
+            nx.draw_networkx_edge_labels(G, pos, edge_labels=nx.get_edge_attributes(G, 'weight'))
+            plt.title('%s %s' % (app, trace))
+            plt.tight_layout()
+            fig.savefig('plots/%s/%s_DCT.pdf' % (app, trace), dpi=30, bbox_inches="tight")
+            plt.show()
+            plt.close(fig)
+            components = [i[0] for i in groupby(components)]
+            folder = 'csv/%s' % app
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+            with open('%s/%s.csv' % (folder, trace.split('.')[0]), 'w') as data_csv:
+                csv_writer = csv.writer(data_csv, delimiter=',')
+                csv_writer.writerows(components)
+
 
             '''
             =============================================================
@@ -269,11 +283,11 @@ if __name__ == '__main__':
             # fig.savefig('plots/%s/%s_CG.pdf' % (app, trace), dpi=80)
             # plt.close(fig)
 
-        folder = 'method list/%s' % app
+        folder = 'method list'
         if not os.path.exists(folder):
             os.makedirs(folder)
         method_names_df = pd.DataFrame(method_names)
-        method_names_df.to_csv('%s/%s.csv' % (folder, trace), index=True, header=False)
+        method_names_df.to_csv('%s/%s.csv' % (folder, app), index=True, header=False)
 
 # archive_url = os.getcwd() + '/data'
 # category_names = os.listdir(archive_url)
