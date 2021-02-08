@@ -1,13 +1,19 @@
 
 import os
+import re
 import copy
 import pickle
 import numpy as np
+import pandas as pd
 
 from spmf import Spmf
 from functools import reduce
 from itertools import groupby
+from nltk.corpus import stopwords
 from sklearn.cluster import AgglomerativeClustering
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+from pygapbide import *
 
 archive_url = os.getcwd() + '/components'
 apps = os.listdir(archive_url)
@@ -19,9 +25,9 @@ class IdList:
 
     class Pattern:
         def __init__(self):
-            self.pattern = []
-            self.l_loc = []
-            self.r_loc = []
+            self.pattern = np.empty(0)
+            self.l_loc = np.empty(0)
+            self.r_loc = np.empty(0)
             self.support = 0
 
         def __init__(self, pattern, l_loc, r_loc, support):
@@ -44,6 +50,7 @@ class IdList:
         self.n_traces = 0           # Number of traces
         self.ids = []               # Preliminary Phase IDs
         self.phase_support = {}     # Support of each phase
+        self.phase_size = {}        # Size of each phase
         self.idList = {}            # Actual Data Structure
                                     #           ID
                                     # tid   |   Occurence
@@ -56,7 +63,8 @@ class IdList:
         self.ids.append(phase)
         idx = self.ids.index(phase)
         self.phase_support[idx] = 0
-        self.idList[idx] = [[] for _ in range(self.n_traces)]
+        self.phase_size[idx] = len(phase)
+        self.idList[idx] = np.full(self.n_traces, np.nan)
         self.XMap[idx] = set()
 
     # Construct the Id List given the list of preliminary phases as list of sets: [{phase_1}, {phase_2}, ..., {phase_n}]
@@ -84,7 +92,7 @@ class IdList:
                 phase_idx = self.ids.index(phase)
 
                 # Insert to IdList
-                self.idList[phase_idx][trace_idx].append(event_idx)
+                self.idList[phase_idx][trace_idx] = event_idx
                 # self.phase_support[phase_idx] += 1
 
                 # Update Extention Map
@@ -105,7 +113,7 @@ class IdList:
 
         # Compute Support of phases
         for i in range(len(self.ids)):
-            self.phase_support[i] = np.sum([len(x) for x in self.idList[i]]) / self.n_traces
+            self.phase_support[i] = np.sum(~np.isnan(self.idList[i])) / self.n_traces
 
     # Matching between a and b where elements of a should greater than b
     def __matching(self, l_loc, r_loc):
@@ -124,63 +132,67 @@ class IdList:
         return matches
 
     # Extend pattern by depth-first-search manner
-    def __extend_pattern(self, pattern, Z, l_loc, r_loc, min_support, que_support):
-        print('Extend Pattern: %.2f - %s' % (min_support, pattern))
+    def __extend_pattern(self, pattern, Z, l_loc, r_loc, que_support, pattern_size):
+        print('Extend Pattern: %.2f - %s' % (que_support, pattern))
+
+        is_closed = True
         patterns = set()
+        candidates = list(self.XMap[pattern[-1]])
 
-        # Recursive extention to the right
-        for candidate in self.XMap[pattern[-1]]:
+        # Compute matches for each
+        cand_supports = {}
+        cand_matches = {}
+        for candidate in candidates:
+            # Matches
+            diff = self.idList[candidate] - r_loc
+            matches = (diff > 0) & (diff <= self.max_gap)
+            cand_matches[candidate] = matches
 
-            # Skip if candidate is not as frequent as current pattern
-            # if self.phase_support[candidate] < min_support:
-            #     continue
+            # Support is defined as sup_(q) * |q|
+            support = (sum(matches) / self.n_traces)
+            # support = (sum(matches) / self.n_traces) * np.log(pattern_size + self.phase_size[candidate])
+            # support = (sum(matches) / self.n_traces) * np.log(len(pattern) + 1)
+            cand_supports[candidate] = support
 
-            skip_candidate = False
+            if support >= que_support:
+                is_closed = False
 
-            # Check if candidate is a closed pattern with higher support
-            # for z in Z:
-            #     if (z.support > que_support) & (z.pattern[0] == candidate):
+        if is_closed:
+            patterns.add(self.Pattern(pattern, l_loc, r_loc, que_support))
+
+        # Sort search space by support
+        ordered_candidates = sorted(cand_supports, key=cand_supports.get)
+        for candidate in ordered_candidates:
+            extended_pattern = pattern + [candidate]
+            matches = cand_matches[candidate]
+            support = cand_supports[candidate]
+
+            if support <= min_support:
+                continue
+
+            # Check if candidate sequence is subsequence of found patterns
+            # skip_candidate = False
+            # for p in patterns:
+            #     if (p.support >= que_support) & is_subsequence(extended_pattern, p.pattern):
             #         skip_candidate = True
             #         break
             # if skip_candidate:
             #     continue
 
-            # Check if candidate sequence is subsequence of found patterns
-            # extend_pattern = pattern + [candidate]
-            # for p in patterns:
-            #     if is_subsequence(extend_pattern, p.pattern):
-            #         skip_candidate = True
-            # if skip_candidate:
-            #     continue
-
-            # Compute support of pattern
-            support = 0
-            xl_loc = []
-            xr_loc = []
-            for i in range(self.n_traces):
-                matches = self.__matching(r_loc[i], self.idList[candidate][i])
-                if len(matches) > 0:
-                    xl_loc.append([x[0] for x in matches])
-                    xr_loc.append([x[1] for x in matches])
-                else:
-                    xl_loc.append([])
-                    xr_loc.append([])
-                # support += len(matches)
-            support = sum([len(x) > 0 for x in matches])
-            if support >= min_support:
-                patterns.update(self.__extend_pattern(pattern + [candidate], Z, xl_loc, xr_loc, min_support, support))
-
-        if len(patterns) == 0:
-            patterns.add(self.Pattern(pattern, l_loc, r_loc, que_support))
+            xl_loc = np.full(self.n_traces, np.nan)
+            xr_loc = np.full(self.n_traces, np.nan)
+            xl_loc[matches] = l_loc[matches]
+            xr_loc[matches] = self.idList[candidate][matches]
+            patterns.update(self.__extend_pattern(extended_pattern, Z, xl_loc, xr_loc, support, pattern_size + self.phase_size[candidate]))
 
         return patterns
 
     # Find maximum sequential pattern given the starting element
     # Returns: Pattern, l_loc, r_loc, support
-    def extend_pattern(self, que_idx, Z, min_support):
+    def extend_pattern(self, que_idx, Z):
         que_idlist = self.idList[que_idx]
         que_support = self.phase_support[que_idx]
-        return list(self.__extend_pattern([que_idx], Z, que_idlist, que_idlist, min_support, que_support))
+        return list(self.__extend_pattern([que_idx], Z, que_idlist, que_idlist, que_support, len(self.ids[que_idx])))
 
 def distance(com1, com2):
     return (len(com1 - com2) + len(com2 - com1)) / (len(com1) + len(com2))
@@ -219,17 +231,8 @@ def is_subsequence(query, base):
     # If all characters of str1 matched, then j is equal to m
     return j == m
 
-def __is_intersect(a, b):
-    return (a[1] >= b[0]) and (b[1] >= a[0])
-
 def is_intersect(A, B):
-    for i in range(len(A)):
-        for a in A[i]:
-            for b in B[i]:
-                if __is_intersect(a, b):
-                    print('%s & %s is intersect' % (a,b))
-                    return True
-    return False
+    return any((A.r_loc >= B.l_loc) & (B.r_loc >= A.l_loc))
 
 def _generateSubgraphs(vertex_list, adjacency_list):
     subgraphs = []
@@ -382,7 +385,7 @@ def MWIS(vertexWeight, adjacencyList):
 
 threshold = 0.2
 min_support = 0.3
-min_method = 1
+min_method = 20
 max_gap = 2
 
 for app in apps:
@@ -443,6 +446,13 @@ for app in apps:
     id_list = IdList()
     id_list.build_list(sequence_db, max_gap)
 
+    # TEMP
+    temp = []
+    for phase in sequence_db[2]:
+        temp.append(id_list.ids.index(phase))
+    print(temp)
+    # END TEMP
+
     # Find Closed Sequential Pattern
     Z = []  # Maximum Sequential Pattern
 
@@ -454,7 +464,7 @@ for app in apps:
 
     while len(search_space) > 0:
         que_idx = search_space.pop(0)
-        patterns = id_list.extend_pattern(que_idx, Z, min_support)
+        patterns = id_list.extend_pattern(que_idx, Z)
 
         # Check if pattern satisfy minimum number of methods
         for pattern in patterns:
@@ -475,38 +485,34 @@ for app in apps:
             #         break
 
     print('Number of Raw Patterns: %d' % len(Z))
-    # Keep closed pattern only
-    for i in range(len(Z)-1, 0, -1):
-        for j in range(len(Z)):
-            if i == j:
-                continue
-            # Z[i] and Z[j] have the same support and Z[i] is a subsequence of Z[j]
-            if (Z[i].support == Z[j].support) & (is_subsequence(Z[i].pattern, Z[j].pattern)):
-                print('Z[%d] is a subsequence of Z[%d]: (%s) and (%s)' % (i, j, Z[i].pattern, Z[j].pattern))
-                # Delete Z[i]
-                del Z[i]
-                break
-    print('Number of Closed Patterns: %d' % len(Z))
 
-    # Format Closed Pattern as (Pattern, Positions, Support)
-    closed_patterns = []
-    for z in Z:
-        positions = []
-        # For each trace
-        for i in range(id_list.n_traces):
-            positions.append(list(zip(z.l_loc[i], z.r_loc[i])))
-        closed_patterns.append((z.pattern, positions, z.support))
-    closed_patterns = np.array(closed_patterns, dtype=object)
+    # # Keep closed pattern only
+    # for i in range(len(Z)-1, 0, -1):
+    #     for j in range(len(Z)):
+    #         if i == j:
+    #             continue
+    #         # Z[i] and Z[j] have the same support and Z[i] is a subsequence of Z[j]
+    #         if (Z[i].support == Z[j].support) & (is_subsequence(Z[i].pattern, Z[j].pattern)):
+    #             print('Z[%d] is a subsequence of Z[%d]: (%.2f: %s) and (%.2f: %s)' % (i, j, Z[i].support, Z[i].pattern, Z[j].support, Z[j].pattern))
+    #             # Delete Z[i]
+    #             del Z[i]
+    #             break
+    # print('Number of Closed Patterns: %d' % len(Z))
+    Z = np.array(sorted(Z, key=lambda pattern: pattern.support, reverse=True))
+
+    # Prnt closed patterns
+    for pattern in Z:
+        print('%.2f\t%.100s' % (pattern.support, pattern.pattern))
 
     # Vertex list contains the weight of the phase
     # Edge list contains relationship among phases if two phases are overlapped
     vertex_list = []
     edge_list = []
-    for i in range(len(closed_patterns)):
+    for i in range(len(Z)):
         # Weight is defined as the number_of_method * support_of_phase
-        vertex_list.append(len(closed_patterns[i][0]) * closed_patterns[i][2])
-        for j in range(i + 1, len(closed_patterns)):
-            if is_intersect(closed_patterns[i][1], closed_patterns[j][1]):
+        vertex_list.append(Z[i].support)
+        for j in range(i + 1, len(Z)):
+            if is_intersect(Z[i], Z[j]):
                 print('%d and %d are overlapped' % (i, j))
                 edge_list.append((i, j))
                 edge_list.append((j, i))
@@ -532,12 +538,57 @@ for app in apps:
 
     patterns = closed_patterns[solution]
 
+    # Print Pattern Result
+    for pattern in patterns:
+        print('%.2f\t%s' % (pattern[2], pattern[0]))
+    for pattern in patterns:
+        phases = []
+        for phase in pattern[0]:
+            phases.append(id_list.ids[phase])
+        print('%.2f\t%s' % (pattern[2], phases))
+
+    # Read method list and group names by patterns
+    methods_df = pd.read_csv('method list/%s.csv' % app, header=None, names=('index', 'method_id'))
+    methods = []
+    for i,row in methods_df.iterrows():
+        words = []
+        # Remove text in bracket
+        string = re.sub(r'\([^)]*\)', '', row.method_id)
+        # Get method name and activity/fragment name only
+        terms = re.findall(r"[\w']+", string)[-2:]
+        for term in terms:
+            words += [x.lower() for x in re.findall('.[^A-Z]*', term)]
+        methods.append(words)
+
+    # Build bag of word for each pattern
+    pattern_methods = []
+    for pattern in patterns:
+        documents = []
+        for phase in pattern[0]:
+            documents.append(' '.join(methods[phase]))
+        pattern_methods.append(documents)
+
+    # Perform TF-IDF
+    for i in range(len(patterns)):
+        phases = []
+        for phase in patterns[i][0]:
+            phases.append(id_list.ids[phase])
+        print('%.2f\t%s' % (patterns[i][2], phases))
+
+        vectorizer = TfidfVectorizer(use_idf=True)
+        tfIdf = vectorizer.fit_transform(pattern_methods[i])
+        df = pd.DataFrame(tfIdf[0].T.todense(), index=vectorizer.get_feature_names(), columns=["TF-IDF"])
+        df = df.sort_values('TF-IDF', ascending=False)
+        print(df.head(10))
+
+
+
     '''
             Testing Simple Approach With VMSP
     '''
     # Represent Data by ID-List IDs
     temp_data = []
-    for trace in data:
+    for trace in sequence_db:
         temp_trace = []
         for event in trace:
             temp_trace.append(id_list.ids.index(event))
@@ -551,10 +602,21 @@ for app in apps:
         f.write('-2\r\n')
     f.close()
 
-    spmf = Spmf("VMSP", input_filename="%s.txt" % app, output_filename="output.txt", arguments=['40%', 500, max_gap, False])
+    # All Sequential Patterns
     # spmf = Spmf("SPAM", input_filename="%s.txt" % app, output_filename="output.txt", arguments=[0.6, 5, 500, max_gap, False])
-    spmf.run()
-    print(spmf.to_pandas_dataframe(pickle=True))
+    # Closed Sequential Patterns
+    sdb = []
+    for trace in temp_data:
+        s = []
+        for i in range(len(trace)):
+            s.append(trace[i])
+        sdb.append(s)
+    gb = Gapbide(sdb, int(min_support * id_list.n_traces), 0, max_gap-1)
+    gb.run()
+    # Maximal Sequential Patterns
+    # spmf = Spmf("VMSP", input_filename="%s.txt" % app, output_filename="output.txt", arguments=['%d%%' % (min_support * 100), 500, max_gap, False])
+    # spmf.run()
+    # print(spmf.to_pandas_dataframe(pickle=True))
 
     '''
             End Testing Simple Approach With VMSP
@@ -563,13 +625,10 @@ for app in apps:
 
 # Print Pattern Result
 for p in patterns:
-    print('Pattern: %s' % p[0])
-    print('Support: %d' % p[2])
+    print('%.2f\t%s' % (p[2], p[0]))
     print('Positions:')
     for i in range(len(p[1])):
         print('  Trace %d: %s' % (i, p[1][i]))
 
 import random
 sorted(random.sample(range(1,50), 6))
-
-29, 35, 36, 37, 38, 39, 40, 41, 42, 39, 40, 42, 43, 42, 41, 39, 40, 41, 42, 39, 40, 42, 43, 39, 40, 42, 39, 40, 42, 43, 44, 43, 45, 46, 47, 1, 2, 48, 4, 5, 6, 4, 5, 6, 16, 17, 18, 6, 7, 8, 9, 10, 9, 10, 6, 11, 6, 11, 6, 12, 13, 12, 14, 9, 10, 9, 10, 6, 9, 10, 9, 10, 9, 6, 15, 16, 17, 18, 16, 17, 18, 16, 17, 18, 16, 17, 18
