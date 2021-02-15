@@ -24,8 +24,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
+import numpy as np
 
 class Gapbide:
+
+    class Pattern:
+        def __init__(self):
+            self.pattern = np.empty(0)
+            self.pdb = dict()
+            self.support = 0
+
+        def __init__(self, pattern, sup, pdb):
+            self.pattern = pattern
+            self.pdb = pdb
+            self.support = sup
+
+        def __eq__(self, other):
+            return self.pattern == other.pattern
+
+        def __hash__(self):
+            return hash(str(self.pattern))
+
     def __init__(self, sdb, sup, m, n):
         '''
         sdb: alist of sequences,
@@ -39,17 +58,20 @@ class Gapbide:
         self.count_closed = 0
         self.count_non_closed = 0
         self.count_pruned = 0
+        self.patterns = []
 
     def run(self):
         l1_patterns = self.gen_l1_patterns()
         for pattern, sup, pdb in l1_patterns:
             self.span(pattern, sup, pdb)
+        return self.patterns
 
     def output(self, pattern, sup, pdb):
         '''
         overide this function to output patterns to files.
         '''
-        print(pattern, sup, pdb)
+        self.patterns.append(self.Pattern(pattern, sup, pdb))
+        # print(pattern, sup, pdb)
 
     def gen_l1_patterns(self):
         '''

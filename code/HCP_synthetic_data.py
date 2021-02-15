@@ -1,3 +1,5 @@
+
+
 import os
 import copy
 import math
@@ -7,44 +9,6 @@ import shutil
 import numpy as np
 import itertools
 
-seed = 42
-
-'''
-    Parameters for generating patterns
-'''
-
-# Number of patterns
-patternUniqueAmount = 10
-
-# Distribution of number of phases in patterns
-patternNum_mu = 5
-patternNum_sigma = 1
-
-# Number of unique methods
-methodUniqueAmount = 9999
-
-# Distribution of method in phases ( Number of Methods in Phases)
-methodNumInPhase_mu = 10
-methodNumInPhase_sigma = 3
-
-# Number of unique phases
-phaseUniqueAmount = (methodUniqueAmount // methodNumInPhase_mu) - 1
-
-# Distribution of repeating Phases
-phaseRep_mu = 1
-phaseRep_sigma = 0
-
-'''
-    Parameters for generating sequences
-'''
-
-# Distribution of number of patterns repeated
-patternRep_mu = 5
-patternRep_sigma = 1
-
-# Distribution of number of patterns in sequences
-patternInSeq_mu = 5
-patternInSeq_sigma = 1
 
 # Total number of sequence required in DB
 # pattern number divided by pattern in sequence
@@ -138,7 +102,7 @@ def sequenceDB_and_dict(patternSet,pattern_temp,patternInSeq_mu,patternInSeq_sig
     ## Randomize number of patterns in sequence by Norm dist
     np.random.seed(seed)
     seqNormNum = np.random.normal(patternInSeq_mu,patternInSeq_sigma,sequence_in_db-1)
-    seqNormInt = np.round(seqNormNum).astype(int)
+    seqNormInt = list(np.round(seqNormNum).astype(int))
     if len(pattern_temp) - sum(seqNormInt) > 0:
         seqNormInt.append(len(pattern_temp) - sum(seqNormInt))
 
@@ -200,6 +164,53 @@ def sequenceDB_and_dict(patternSet,pattern_temp,patternInSeq_mu,patternInSeq_sig
         seq_pattern = seqDB_list[i]
         seqDB.append(list(itertools.chain.from_iterable(seq_pattern)))
     return (pattern_dict, seqDB, seqDB_list)
+
+'''
+    ================================================================================
+                                Generate DB Logics
+    ================================================================================
+'''
+
+candidates = np.arange(2,52,2)
+
+seed = 42
+
+'''
+    Parameters for generating patterns
+'''
+
+# Number of patterns
+patternUniqueAmount = 5
+
+# Distribution of number of phases in patterns
+patternNum_mu = 10
+patternNum_sigma = 3
+
+# Number of unique methods
+methodUniqueAmount = 9999
+
+# Distribution of method in phases ( Number of Methods in Phases)
+methodNumInPhase_mu = 10
+methodNumInPhase_sigma = 3
+
+# Number of unique phases
+phaseUniqueAmount = (methodUniqueAmount // methodNumInPhase_mu) - 1
+
+# Distribution of repeating Phases
+phaseRep_mu = 1
+phaseRep_sigma = 0
+
+'''
+    Parameters for generating sequences
+'''
+
+# Distribution of number of patterns repeated
+patternRep_mu = 4
+patternRep_sigma = 0
+
+# Distribution of number of patterns in sequences
+patternInSeq_mu = 2
+patternInSeq_sigma = 0
 
 method = method_pool(methodUniqueAmount, seed)
 phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, seed)
