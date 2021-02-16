@@ -7,7 +7,7 @@ import pickle
 import numpy as np
 import pandas as pd
 
-from spmf import Spmf
+# from spmf import Spmf
 from functools import reduce
 from itertools import groupby
 from nltk.corpus import stopwords
@@ -144,8 +144,9 @@ for app in apps:
 
     # end time
     end = time.time()
+    TRASE_time = end - start
 
-    print('\nRuntime of TRASE is %.2fs' % (end - start))
+    print('\nRuntime of TRASE is %.2fs' % TRASE_time)
 
     # # print('Number of Raw Patterns: %d' % len(Z))
     #
@@ -287,8 +288,9 @@ for app in apps:
     # print(spmf.to_pandas_dataframe(pickle=True))
 
     end = time.time()
+    GB_time = end - start
 
-    print('\nRuntime of Gap-Bide is %.2fs' % (end - start))
+    print('\nRuntime of Gap-Bide is %.2fs' % GB_time)
 
     '''
             End Testing Simple Approach With VMSP

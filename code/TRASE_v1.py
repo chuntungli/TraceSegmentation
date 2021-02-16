@@ -1,18 +1,6 @@
 
-import os
-import re
 import numpy as np
-import pandas as pd
-
-from spmf import Spmf
 from functools import reduce
-from itertools import groupby
-from nltk.corpus import stopwords
-from sklearn.cluster import AgglomerativeClustering
-from sklearn.feature_extraction.text import TfidfVectorizer
-
-from pygapbide import *
-
 
 # ====================================================================
 #                              ID List
@@ -43,7 +31,7 @@ class IdList:
 
     def __reset(self):
         self.max_gap = 1
-        self.min_sup = 0.3
+        self.min_support = 0.3
         self.n_traces = 0           # Number of traces
         self.ids = []               # Preliminary Phase IDs
         self.phase_support = {}     # Support of each phase
@@ -72,7 +60,7 @@ class IdList:
         self.__reset()
 
         self.max_gap = max_gap
-        self.min_sup = min_sup
+        self.min_support = min_sup
 
         self.n_traces = len(traces)
 

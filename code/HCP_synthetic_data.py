@@ -75,8 +75,8 @@ def pattern_pool_phase_id(phasePool, phaseNormInt, patternNum_mu, patternNum_sig
 
 def pattern_pool(patternSet_phaseID, phasePool, patternRep_mu, patternRep_sigma, length_of_patternSet, seed):
     ## Represent pattern set in terms of phase
-#     patternSet = copy.deepcopy(patternSet_phaseId)
-    patternSet = patternSet_phaseID
+    patternSet = copy.deepcopy(patternSet_phaseID)
+    # patternSet = patternSet_phaseID
     for i, row in enumerate(patternSet):
         for j,cell in enumerate(row):
             location = patternSet[i][j]
@@ -180,7 +180,7 @@ seed = 42
 '''
 
 # Number of patterns
-patternUniqueAmount = 5
+patternUniqueAmount = 10
 
 # Distribution of number of phases in patterns
 patternNum_mu = 10
@@ -205,19 +205,40 @@ phaseRep_sigma = 0
 '''
 
 # Distribution of number of patterns repeated
-patternRep_mu = 4
+patternRep_mu = 5
 patternRep_sigma = 0
 
 # Distribution of number of patterns in sequences
-patternInSeq_mu = 2
+patternInSeq_mu = 5
 patternInSeq_sigma = 0
 
 method = method_pool(methodUniqueAmount, seed)
 phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, seed)
 pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, seed)
-pattern_set, pattern_no = pattern_pool(pattern, phase, patternRep_mu, patternRep_sigma, len(pattern), seed)
-sequence_number_in_db = math.floor(len(pattern_no)/patternInSeq_mu)
-pattern_dictionary, sequence_database, sequence_database_list =  sequenceDB_and_dict(pattern_set,pattern_no,patternInSeq_mu,patternInSeq_sigma,sequence_number_in_db,seed)
+
+# Generate different number of sequences
+
+for rep in [5,10,25,50,100,250,500]:
+
+    # Distribution of number of patterns repeated
+    patternRep_mu = rep
+    patternRep_sigma = 0
+
+    # Distribution of number of patterns in sequences
+    patternInSeq_mu = 5
+    patternInSeq_sigma = 0
+
+    pattern_set, pattern_no = pattern_pool(pattern, phase, patternRep_mu, patternRep_sigma, len(pattern), seed)
+    sequence_number_in_db = math.floor(len(pattern_no)/patternInSeq_mu)
+    pattern_dictionary, sequence_database, sequence_database_list =  sequenceDB_and_dict(pattern_set,pattern_no,patternInSeq_mu,patternInSeq_sigma,sequence_number_in_db,seed)
+
+    # Write with pickle
+    folder = 'components/synthetic/n_seq/%d/' % (rep*2)
+    if os.path.exists(folder):
+        shutil.rmtree(folder)
+    os.makedirs(folder)
+    for i in range(len(sequence_database)):
+        pickle.dump(sequence_database[i], open('%s/seq_%d.p' % (folder, i), "wb"))
 
 # Print seqDB
 for i in range(len(sequence_database)):
@@ -230,13 +251,7 @@ for key in pattern_dictionary:
     for i in range(len(pattern_dictionary[key]['position'])):
         print('  Trace %d: %s' % (i, pattern_dictionary[key]['position'][i]))
 
-# Write with pickle
-folder = 'components/synthetic'
-if os.path.exists(folder):
-    shutil.rmtree(folder)
-os.makedirs(folder)
-for i in range(len(sequence_database)):
-    pickle.dump(sequence_database[i], open('%s/seq_%d.p' % (folder, i), "wb"))
+
 
 # Write with pickle
 groundtruths = list(pattern_dictionary.values())
