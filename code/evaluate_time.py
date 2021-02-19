@@ -1,45 +1,19 @@
 
 import os
-import re
-import copy
 import time
 import pickle
 import numpy as np
 import pandas as pd
 
 # from spmf import Spmf
-from functools import reduce
 from itertools import groupby
-from nltk.corpus import stopwords
-from sklearn.cluster import AgglomerativeClustering
-from sklearn.feature_extraction.text import TfidfVectorizer
 
 from TRASE_v1 import *
 from pygapbide import *
 
 
-'''
-        =================================================================
-                                Main Program
-        =================================================================
-'''
-
-threshold = 0.2
-min_support = 0.2
-min_method = 5
-max_gap = 3
-
-time_record = []
-
-# Test time on different number of sequences
-folder = 'components/synthetic/n_seq'
-for rep in os.listdir(folder):
-    if rep.startswith('.'):
-        continue
-
-    rep = int(rep)
-    current_folder = '%s/%d' % (folder, rep)
-    traces = sorted(os.listdir(current_folder))
+def build_seqDB(folder_path):
+    traces = sorted(os.listdir(folder_path))
 
     data = []
     trace_idx = 0
@@ -48,7 +22,7 @@ for rep in os.listdir(folder):
         if trace.startswith('.'):
             continue
 
-        components = pickle.load(open('%s/%s' % (current_folder, trace), "rb"))
+        components = pickle.load(open('%s/%s' % (folder_path, trace), "rb"))
         # print('Number of Raw Preliminary Phrases: %d' % len(components))
 
         # Remove consecutive duplicate items
@@ -69,112 +43,185 @@ for rep in os.listdir(folder):
                 sequence.append(trace[i])
         sequence_db.append(sequence)
 
-    '''
-        =================================================================
-                                TRASE Algorithm Begin
-        =================================================================
-    '''
+    return sequence_db
 
-    # starting time
-    start = time.time()
-
-    # Build ID List
-    id_list = IdList()
-    id_list.build_list(sequence_db, max_gap, min_support)
-
-    # Find Closed Sequential Pattern
-    Z = []  # Maximum Sequential Pattern
-
-    # Generate and sort search_space by support
-    search_space = np.argsort(list(id_list.phase_support.values()))[::-1]
-
-    # Ignore Ids less than min_support support
-    search_space = list(search_space[:np.sum(np.array(list(id_list.phase_support.values())) >= min_support)])
-
-    while len(search_space) > 0:
-        que_idx = search_space.pop(0)
-        patterns = id_list.extend_pattern(que_idx, Z)
-
-        # Check if pattern satisfy minimum number of methods
-        for i in range(len(patterns) - 1, -1, -1):
-            no_of_methods = sum([len(id_list.ids[x]) for x in patterns[i].pattern])
-            if no_of_methods < min_method:
-                del patterns[i]
-
-        # Keep closed pattern only
-        for i in range(len(patterns) - 1, -1, -1):
-            for j in range(len(patterns)):
-                if i == j:
-                    continue
-                # p[i] and p[j] have the same support and p[i] is a subsequence of p[j]
-                if (patterns[i].support == patterns[j].support) & (is_subsequence(patterns[i].pattern, patterns[j].pattern)):
-                    # print('p[%d] is a subsequence of p[%d]: (%.2f: %s) and (%.2f: %s)' % (
-                    #     i, j, patterns[i].support, patterns[i].pattern, patterns[j].support, patterns[j].pattern))
-                    del patterns[i]
-                    break
-
-        # Pattern is Valid and added to Z
-        Z += patterns
-
-    # end time
-    end = time.time()
-    TRASE_time = end - start
-
-    print('\nRuntime of TRASE is %.2fs' % TRASE_time)
-    time_record.append(('TRASE', 'REP', '%.3f' % TRASE_time))
-
-
-    '''
-        =================================================================
-                            Gap-Bide Algorithm Begin
-        =================================================================
-    '''
-
-    # Represent Data by ID-List IDs
-    temp_data = []
+# Convert traces to list of phase ids
+def convertTrace(id_list):
+    # Convert the trace to other format
+    sdb_phaseIDs = []
     for trace in sequence_db:
-        temp_trace = []
-        for event in trace:
-            temp_trace.append(id_list.ids.index(event))
-        temp_data.append(temp_trace)
-
-    start = time.time()
-
-    # All Sequential Patterns
-    # spmf = Spmf("SPAM", input_filename="%s.txt" % app, output_filename="output.txt", arguments=[0.6, 5, 500, max_gap, False])
-    # Closed Sequential Patterns
-    sdb = []
-    for trace in temp_data:
         s = []
-        for i in range(len(trace)):
-            s.append(trace[i])
-        sdb.append(s)
-    gb = Gapbide(sdb, int(min_support * id_list.n_traces), 0, max_gap-1)
-    temp = gb.run()
-    # Maximal Sequential Patterns
-    # spmf = Spmf("VMSP", input_filename="%s.txt" % app, output_filename="output.txt", arguments=['%d%%' % (min_support * 100), 500, max_gap, False])
-    # spmf.run()
-    # print(spmf.to_pandas_dataframe(pickle=True))
+        for event in trace:
+            s.append(id_list.ids.index(event))
+        sdb_phaseIDs.append(s)
 
-    end = time.time()
-    GB_time = end - start
+    # Write data to file
+    # f = open("%s.txt" % app, "w+")
+    # for trace in temp_data:
+    #     for i in range(len(trace)):
+    #         f.write('%d -1 ' % trace[i])
+    #     f.write('-2\r\n')
+    # f.close()
 
-    print('\nRuntime of Gap-Bide is %.2fs' % GB_time)
-    time_record.append(('GAP-BIDE', 'REP', '%.3f' % GB_time))
+    return sdb_phaseIDs
 
-    '''
+'''
         =================================================================
-                            Gap-Bide Algorithm Begin
+                        Evaluate Different Length of Patterns
         =================================================================
-    '''
+'''
+
+time_record = []
+min_sup = 0.2
+min_size = 1
+max_gap = 3
+
+# Test time on different number of sequences
+folder = 'components/synthetic/pat_len'
+for pat_len in os.listdir(folder):
+    if not pat_len.isdigit():
+        continue
+
+    pat_len = int(pat_len)
+    folds = sorted(os.listdir('%s/%d' % (folder, pat_len)))
+
+    for fold in folds:
+        fold = int(fold)
+
+        sequence_db = build_seqDB('%s/%d/%d' % (folder, pat_len, fold))
+
+        '''
+            =================================================================
+                                    TRASE Algorithm
+            =================================================================
+        '''
+
+        start = time.time()
+        # seq_db, min_sup, min_size, max_gap
+        id_list, patterns = TRASE(sequence_db, min_sup, min_size, max_gap)
+        TRASE_time = time.time() - start
+
+        print('\nRuntime of TRASE: %.2fs\tNo. of Patterns: %d' % (TRASE_time, len(patterns)))
+        time_record.append(('TRASE', pat_len, fold, '%.3f' % TRASE_time))
 
 
-# Print Pattern Result
-for p in patterns:
-    print('%.2f\t%s' % (p[2], p[0]))
-    print('Positions:')
-    for i in range(len(p[1])):
-        print('  Trace %d: %s' % (i, p[1][i]))
+        '''
+            =================================================================
+                                Gap-Bide Algorithm
+            =================================================================
+        '''
 
-import random
-sorted(random.sample(range(1,50), 6))
+        # Convert the trace to other format
+        sdb = convertTrace(id_list)
+
+        start = time.time()
+
+        # All Sequential Patterns
+        # spmf = Spmf("SPAM", input_filename="%s.txt" % app, output_filename="output.txt", arguments=[0.6, 5, 500, max_gap, False])
+
+        # Closed Sequential Patterns
+        gb = Gapbide(sdb, int(min_sup * id_list.n_traces), 0, max_gap-1)
+        patterns = gb.run()
+
+        # Maximal Sequential Patterns
+        # spmf = Spmf("VMSP", input_filename="%s.txt" % app, output_filename="output.txt", arguments=['%d%%' % (min_support * 100), 500, max_gap, False])
+        # spmf.run()
+        # print(spmf.to_pandas_dataframe(pickle=True))
+
+        GB_time = time.time() - start
+
+        print('Runtime of Gap-Bide: %.2fs\tNo. of Patterns: %d' % (GB_time, len(patterns)))
+        time_record.append(('GAP-BIDE', pat_len, fold, '%.3f' % GB_time))
+
+time_df = pd.DataFrame(time_record, columns=('method', 'pat_len', 'fold', 'time'))
+time_df = time_df.astype({'time': 'double'})
+time_df.to_csv('%s/result.csv' % folder, index=False)
+print(time_df.groupby(by=['method', 'pat_len']).agg({'time': ['mean', 'std']}))
+
+
+
+'''
+        =================================================================
+                        Evaluate Different No. of Patterns
+        =================================================================
+'''
+
+time_record = []
+min_sup = 0.2
+min_size = 1
+max_gap = 1
+
+# Test time on different number of sequences
+folder = 'components/synthetic/seq_len'
+for seq_len in os.listdir(folder):
+    if not seq_len.isdigit():
+        continue
+
+    seq_len = int(seq_len)
+    folds = sorted(os.listdir('%s/%d' % (folder, seq_len)))
+
+    for fold in folds:
+        fold = int(fold)
+
+        sequence_db = build_seqDB('%s/%d/%d' % (folder, seq_len, fold))
+
+        '''
+            =================================================================
+                                    TRASE Algorithm
+            =================================================================
+        '''
+
+        start = time.time()
+        # seq_db, min_sup, min_size, max_gap
+        id_list, patterns = TRASE(sequence_db, min_sup, min_size, max_gap)
+        TRASE_time = time.time() - start
+
+        print('\nRuntime of TRASE: %.2fs\tNo. of Patterns: %d' % (TRASE_time, len(patterns)))
+        time_record.append(('TRASE', seq_len, fold, '%.3f' % TRASE_time))
+
+
+        '''
+            =================================================================
+                                Gap-Bide Algorithm
+            =================================================================
+        '''
+
+        # Convert the trace to other format
+        sdb = convertTrace(id_list)
+
+        start = time.time()
+
+        # All Sequential Patterns
+        # spmf = Spmf("SPAM", input_filename="%s.txt" % app, output_filename="output.txt", arguments=[0.6, 5, 500, max_gap, False])
+
+        # Closed Sequential Patterns
+        gb = Gapbide(sdb, int(min_sup * id_list.n_traces), 0, max_gap-1)
+        patterns = gb.run()
+
+        # Maximal Sequential Patterns
+        # spmf = Spmf("VMSP", input_filename="%s.txt" % app, output_filename="output.txt", arguments=['%d%%' % (min_support * 100), 500, max_gap, False])
+        # spmf.run()
+        # print(spmf.to_pandas_dataframe(pickle=True))
+
+        GB_time = time.time() - start
+
+        print('Runtime of Gap-Bide: %.2fs\tNo. of Patterns: %d' % (GB_time, len(patterns)))
+        time_record.append(('GAP-BIDE', seq_len, fold, '%.3f' % GB_time))
+
+time_df = pd.DataFrame(time_record, columns=('method', 'seq_len', 'fold', 'time'))
+time_df = time_df.astype({'time': 'double'})
+time_df.to_csv('%s/result.csv' % folder, index=False)
+print(time_df.groupby(by=['method', 'seq_len']).agg({'time': ['mean', 'std']}))
+
+
+
+
+# # Print Pattern Result
+# for p in patterns:
+#     print('%.2f\t%s' % (p[2], p[0]))
+#     print('Positions:')
+#     for i in range(len(p[1])):
+#         print('  Trace %d: %s' % (i, p[1][i]))
+#
+# import random
+# sorted(random.sample(range(1,50), 6))

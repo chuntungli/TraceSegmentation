@@ -106,7 +106,9 @@ class IdList:
 
     # Extend pattern by depth-first-search manner
     def __extend_pattern(self, closed_patterns, pattern, l_loc, r_loc, que_support, best_score):
-        print('\rExplored: %d\tPruned: %d\tExploring: %.2f - %s' % (self.explored, self.pruned, que_support, pattern), end='')
+        # print('\rExplored: %d\tPruned: %d\tExploring: %.2f - %s' % (self.explored, self.pruned, que_support, pattern), end='')
+        print('\rExplored: %d\tPruned: %d' % (self.explored, self.pruned),
+              end='')
         self.explored += 1
 
         is_closed = True
@@ -167,10 +169,10 @@ class IdList:
 
         if is_closed:
             should_add = True
-            for p in closed_patterns:
-                if (p.support >= que_support) & (is_subsequence(pattern, p.pattern)):
-                    should_add = False
-                    break
+            # for p in closed_patterns:
+            #     if (p.support >= que_support) & (is_subsequence(pattern, p.pattern)):
+            #         should_add = False
+            #         break
             if should_add:
                 closed_patterns.add(self.Pattern(pattern, l_loc, r_loc, que_support))
 
@@ -371,3 +373,46 @@ def MWIS(vertexWeight, adjacencyList):
     X = _incumb(vertexWeight, adjacencyList)
     LB = _calculateLB(X, vertexWeight, adjacencyList)
     return _BBND(vertexWeight, adjacencyList, LB, X)
+
+def TRASE(seq_db, min_sup, min_size=1, max_gap=1):
+    # Build ID List
+    id_list = IdList()
+    id_list.build_list(seq_db, max_gap, min_sup)
+
+    # Find Closed Sequential Pattern
+    Z = []  # Maximum Sequential Pattern
+
+    # Generate and sort search_space by support
+    # search_space = np.argsort(list(id_list.phase_support.values()))[::-1]
+    search_space = np.lexsort((np.arange(len(id_list.ids)), np.negative(list(id_list.phase_support.values()))))
+
+    # Ignore Ids less than min_support support
+    search_space = list(search_space[:np.sum(np.array(list(id_list.phase_support.values())) >= min_sup)])
+
+    while len(search_space) > 0:
+        que_idx = search_space.pop(0)
+        patterns = id_list.extend_pattern(que_idx, Z)
+
+        # Check if pattern satisfy minimum number of methods
+        for i in range(len(patterns) - 1, -1, -1):
+            no_of_methods = sum([len(id_list.ids[x]) for x in patterns[i].pattern])
+            if no_of_methods < min_size:
+                del patterns[i]
+
+        # Keep closed pattern only
+        for i in range(len(patterns) - 1, -1, -1):
+            for j in range(len(patterns)):
+                if i == j:
+                    continue
+                # p[i] and p[j] have the same support and p[i] is a subsequence of p[j]
+                if (patterns[i].support == patterns[j].support) & (
+                is_subsequence(patterns[i].pattern, patterns[j].pattern)):
+                    # print('p[%d] is a subsequence of p[%d]: (%.2f: %s) and (%.2f: %s)' % (
+                    #     i, j, patterns[i].support, patterns[i].pattern, patterns[j].support, patterns[j].pattern))
+                    del patterns[i]
+                    break
+
+        # Pattern is Valid and added to Z
+        Z += patterns
+
+    return (id_list, Z)
