@@ -169,10 +169,10 @@ class IdList:
 
         if is_closed:
             should_add = True
-            # for p in closed_patterns:
-            #     if (p.support >= que_support) & (is_subsequence(pattern, p.pattern)):
-            #         should_add = False
-            #         break
+            for p in closed_patterns:
+                if (p.support >= que_support) & (is_subsequence(pattern, p.pattern)):
+                    should_add = False
+                    break
             if should_add:
                 closed_patterns.add(self.Pattern(pattern, l_loc, r_loc, que_support))
 
@@ -373,6 +373,7 @@ def MWIS(vertexWeight, adjacencyList):
     X = _incumb(vertexWeight, adjacencyList)
     LB = _calculateLB(X, vertexWeight, adjacencyList)
     return _BBND(vertexWeight, adjacencyList, LB, X)
+
 
 def TRASE(seq_db, min_sup, min_size=1, max_gap=1):
     # Build ID List
