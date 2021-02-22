@@ -190,6 +190,10 @@ seed = 42
 folder = 'components/synthetic'
 if os.path.exists(folder):
     shutil.rmtree(folder)
+folder = 'groundtruth/synthetic'
+if os.path.exists(folder):
+    shutil.rmtree(folder)
+
 
 # Global parameters
 
@@ -197,8 +201,8 @@ if os.path.exists(folder):
 methodUniqueAmount = 9999999
 
 # Distribution of method in phases ( Number of Methods in Phases)
-methodNumInPhase_mu = 1
-methodNumInPhase_sigma = 0
+methodNumInPhase_mu = 20
+methodNumInPhase_sigma = methodNumInPhase_mu * 0.1
 
 # Distribution of repeating Phases
 phaseRep_mu = 1
@@ -219,11 +223,11 @@ patternUniqueAmount = 20
 
 # Distribution of number of patterns in sequences
 patternInSeq_mu = 20
-patternInSeq_sigma = 1
+patternInSeq_sigma = patternInSeq_mu * 0.1
 
 # Distribution of number of patterns repeated
 patternRep_mu = 20
-patternRep_sigma = 1
+patternRep_sigma = patternRep_mu * 0.1
 
 noise_factor = 0.025
 
@@ -271,7 +275,7 @@ patternNum_sigma = patternNum_mu * 0.1
 
 # Distribution of number of patterns repeated
 patternRep_mu = 20
-patternRep_sigma = 1
+patternRep_sigma = patternRep_mu * 0.1
 
 for seq_len in candidates:
 
@@ -362,10 +366,6 @@ for n_seq in candidates:
     =====================================================================
 '''
 
-# Distribution of method in phases ( Number of Methods in Phases)
-methodNumInPhase_mu = 20
-methodNumInPhase_sigma = 2
-
 # Number of patterns
 patternUniqueAmount = 20
 
@@ -378,35 +378,35 @@ phaseUniqueAmount = int(patternUniqueAmount * (patternNum_mu + 1))
 
 # Distribution of number of patterns in sequences
 patternInSeq_mu = 20
-patternInSeq_sigma = 1
+patternInSeq_sigma = patternInSeq_mu * 0.1
 
 noise_factor = 0.025
 
-for n_seq in candidates:
+# Distribution of number of patterns repeated
+patternRep_mu = 20
+patternRep_sigma = patternRep_mu * 0.1
 
-    # Distribution of number of patterns repeated
-    patternRep_mu = n_seq
-    patternRep_sigma = n_seq * 0.1
+noise_factor = 0.025
 
-    method = method_pool(methodUniqueAmount, seed)
-    phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, seed)
-    pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, seed)
+for fold in range(n_fold):
 
-    for fold in range(n_fold):
+    method = method_pool(methodUniqueAmount, fold)
+    phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, fold)
+    pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, fold)
 
-        '''
-            Parameters for generating sequences
-        '''
-        pattern_set, pattern_no = pattern_pool(pattern, phase, patternRep_mu, patternRep_sigma, len(pattern), fold)
-        sequence_number_in_db = math.floor(len(pattern_no) / patternInSeq_mu)
-        pattern_dictionary, sequence_database, sequence_database_list = \
-            sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, np.random.rand() * noise_factor)
+    pattern_set, pattern_no = pattern_pool(pattern, phase, patternRep_mu, patternRep_sigma, len(pattern), fold)
+    sequence_number_in_db = math.floor(len(pattern_no) / patternInSeq_mu)
+    pattern_dictionary, sequence_database, sequence_database_list = \
+        sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, np.random.rand() * noise_factor)
 
-        # Write with pickle
-        folder = 'components/synthetic/n_seq/%d/%d' % (n_seq, fold)
-        os.makedirs(folder)
-        for i in range(len(sequence_database)):
-            pickle.dump(sequence_database[i], open('%s/seq_%d.p' % (folder, i), "wb"))
+    # Write with pickle
+    folder = 'components/synthetic/performance/%d' % fold
+    os.makedirs(folder)
+    for i in range(len(sequence_database)):
+        pickle.dump(sequence_database[i], open('%s/seq_%d.p' % (folder, i), "wb"))
+    folder = 'groundtruth/synthetic/performance/%d' % fold
+    os.makedirs(folder)
+    pickle.dump(pattern_dictionary, open('%s/groundtruth.p' % (folder, i), 'wb'))
 
 
 
