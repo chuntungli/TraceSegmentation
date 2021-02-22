@@ -55,16 +55,20 @@ class Gapbide:
         self.sup = sup
         self.m = m
         self.n = n
+        self.count_explored = 0
         self.count_closed = 0
         self.count_non_closed = 0
         self.count_pruned = 0
         self.patterns = []
 
-    def run(self):
+    def run(self, q_out):
         l1_patterns = self.gen_l1_patterns()
         for pattern, sup, pdb in l1_patterns:
             self.span(pattern, sup, pdb)
-        return self.patterns
+
+        q_out.put(self.patterns)
+        # return self.patterns
+        return None
 
     def output(self, pattern, sup, pdb):
         '''
@@ -93,7 +97,9 @@ class Gapbide:
         return patterns
 
     def span(self, pattern, sup, pdb):
+        print('\rGapBide - Explored: %d\tPruned: %d' % (self.count_explored, self.count_pruned), end='')
         (backward, prune) = self.backward_check(pattern, sup, pdb)
+        self.count_explored += 1
         if prune:
             self.count_pruned += 1
             return

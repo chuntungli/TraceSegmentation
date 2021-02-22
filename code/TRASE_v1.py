@@ -56,11 +56,11 @@ class IdList:
         self.XMap[idx] = set()
 
     # Construct the Id List given the list of preliminary phases as list of sets: [{phase_1}, {phase_2}, ..., {phase_n}]
-    def build_list(self, traces, max_gap = 1, min_sup = 0.3):
+    def build_list(self, traces, min_sup = 0.3, max_gap = 1):
         self.__reset()
 
-        self.max_gap = max_gap
         self.min_support = min_sup
+        self.max_gap = max_gap
 
         self.n_traces = len(traces)
 
@@ -107,8 +107,7 @@ class IdList:
     # Extend pattern by depth-first-search manner
     def __extend_pattern(self, closed_patterns, pattern, l_loc, r_loc, que_support, best_score):
         # print('\rExplored: %d\tPruned: %d\tExploring: %.2f - %s' % (self.explored, self.pruned, que_support, pattern), end='')
-        print('\rExplored: %d\tPruned: %d' % (self.explored, self.pruned),
-              end='')
+        print('\rTRASE - Explored: %d\tPruned: %d' % (self.explored, self.pruned), end='')
         self.explored += 1
 
         is_closed = True
@@ -375,10 +374,10 @@ def MWIS(vertexWeight, adjacencyList):
     return _BBND(vertexWeight, adjacencyList, LB, X)
 
 
-def TRASE(seq_db, min_sup, min_size=1, max_gap=1):
+def TRASE(out_q, seq_db, min_sup, min_size=1, max_gap=1):
     # Build ID List
     id_list = IdList()
-    id_list.build_list(seq_db, max_gap, min_sup)
+    id_list.build_list(seq_db, min_sup, max_gap)
 
     # Find Closed Sequential Pattern
     Z = []  # Maximum Sequential Pattern
@@ -416,4 +415,6 @@ def TRASE(seq_db, min_sup, min_size=1, max_gap=1):
         # Pattern is Valid and added to Z
         Z += patterns
 
-    return (id_list, Z)
+    out_q.put(Z)
+    # return (id_list, Z)
+    return None
