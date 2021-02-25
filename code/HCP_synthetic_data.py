@@ -208,8 +208,9 @@ phaseRep_mu = 1
 phaseRep_sigma = 0
 
 n_fold = 2
-candidates = np.arange(10, 60, 10)
+candidates = np.arange(10, 110, 20)
 
+noise_factor = 0.1
 
 '''
     =====================================================================
@@ -227,8 +228,6 @@ patternInSeq_sigma = patternInSeq_mu * 0.1
 # Distribution of number of patterns repeated
 patternRep_mu = 20
 patternRep_sigma = patternRep_mu * 0.1
-
-noise_factor = 0.025
 
 # for pat_len in [5, 10, 25, 50, 100, 250, 500, 1000]:
 for pat_len in candidates:
@@ -259,6 +258,9 @@ for pat_len in candidates:
         os.makedirs(folder)
         for i in range(len(sequence_database)):
             pickle.dump(sequence_database[i], open('%s/seq_%d.p' % (folder, i), "wb"))
+        folder = 'groundtruth/synthetic/pat_len/%03d/%d' % (pat_len, fold)
+        os.makedirs(folder)
+        pickle.dump(pattern_dictionary, open('%s/groundtruth.p' % folder, 'wb'))
 
 
 
@@ -300,11 +302,13 @@ for seq_len in candidates:
             sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, np.random.rand() * noise_factor)
 
         # Write with pickle
-        folder = 'components/synthetic/seq_len/%d/%d' % (seq_len, fold)
+        folder = 'components/synthetic/seq_len/%03d/%d' % (seq_len, fold)
         os.makedirs(folder)
         for i in range(len(sequence_database)):
             pickle.dump(sequence_database[i], open('%s/seq_%d.p' % (folder, i), "wb"))
-
+        folder = 'groundtruth/synthetic/seq_len/%03d/%d' % (seq_len, fold)
+        os.makedirs(folder)
+        pickle.dump(pattern_dictionary, open('%s/groundtruth.p' % folder, 'wb'))
 
 
 
@@ -328,8 +332,6 @@ phaseUniqueAmount = int(patternUniqueAmount * (patternNum_mu + 1))
 patternInSeq_mu = 20
 patternInSeq_sigma = patternInSeq_mu * 0.1
 
-noise_factor = 0.025
-
 for n_seq in candidates:
 
     # Distribution of number of patterns repeated
@@ -351,11 +353,13 @@ for n_seq in candidates:
             sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, np.random.rand() * noise_factor)
 
         # Write with pickle
-        folder = 'components/synthetic/n_seq/%d/%d' % (n_seq, fold)
+        folder = 'components/synthetic/n_seq/%03d/%d' % (n_seq, fold)
         os.makedirs(folder)
         for i in range(len(sequence_database)):
             pickle.dump(sequence_database[i], open('%s/seq_%d.p' % (folder, i), "wb"))
-
+        folder = 'groundtruth/synthetic/n_seq/%03d/%d' % (n_seq, fold)
+        os.makedirs(folder)
+        pickle.dump(pattern_dictionary, open('%s/groundtruth.p' % folder, 'wb'))
 
 
 
@@ -405,7 +409,7 @@ for fold in range(n_fold):
     os.makedirs(folder)
     for i in range(len(sequence_database)):
         pickle.dump(sequence_database[i], open('%s/seq_%d.p' % (folder, i), "wb"))
-    folder = 'groundtruth/synthetic/%d' % fold
+    folder = 'groundtruth/synthetic/performance/%d' % fold
     os.makedirs(folder)
     pickle.dump(pattern_dictionary, open('%s/groundtruth.p' % folder, 'wb'))
 

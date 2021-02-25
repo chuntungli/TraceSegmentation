@@ -148,105 +148,105 @@ for app in apps:
 
     print('\nRuntime of TRASE is %.2fs' % TRASE_time)
 
-    # # print('Number of Raw Patterns: %d' % len(Z))
-    #
-    # for i in range(len(Z) - 1, 0, -1):
-    #     for j in range(len(Z)):
-    #         if i == j:
-    #             continue
-    #         # Z[i] and Z[j] have the same support and Z[i] is a subsequence of Z[j]
-    #         if (Z[i].support == Z[j].support) & (is_subsequence(Z[i].pattern, Z[j].pattern)):
-    #             print('Z[%d] is a subsequence of Z[%d]: (%s) and (%s)' % (i, j, Z[i].pattern, Z[j].pattern))
-    #             # Delete Z[i]
-    #             del Z[i]
-    #             break
-    #
-    # print('Number of Closed Patterns: %d' % len(Z))
-    #
-    # Z = np.array(sorted(Z, key=lambda pattern: pattern.support, reverse=True))
-    #
-    # # Prnt closed patterns
-    # for pattern in Z:
-    #     print('%.2f\t%.100s' % (pattern.support, pattern.pattern))
-    #
-    # # Vertex list contains the weight of the phase
-    # # Edge list contains relationship among phases if two phases are overlapped
-    # vertex_list = []
-    # edge_list = []
-    # for i in range(len(Z)):
-    #     # Weight is defined as the number_of_method * support_of_phase
-    #     vertex_list.append(Z[i].support * sum([len(id_list.ids[x]) for x in Z[i].pattern]))
-    #     for j in range(i + 1, len(Z)):
-    #         if is_intersect(Z[i], Z[j]):
-    #             print('%d and %d are overlapped' % (i, j))
-    #             edge_list.append((i, j))
-    #             edge_list.append((j, i))
-    # vertex_list = np.array(vertex_list)
-    # edge_list = np.array(edge_list)
-    #
-    # adjacency_list = [[] for __ in vertex_list]
-    # for edge in edge_list:
-    #     adjacency_list[edge[0]].append(edge[1])
-    # adjacency_list = np.array(adjacency_list)
-    #
-    # subgraphs = _generateSubgraphs(vertex_list, adjacency_list)
-    #
-    # solution = np.zeros(len(vertex_list), dtype=bool)
-    # for subgraph in subgraphs:
-    #     vl = np.array(copy.deepcopy(vertex_list[subgraph]))
-    #     al = np.array(copy.deepcopy(adjacency_list[subgraph]))
-    #     for i in range(len(al)):
-    #         for j in range(len(al[i])):
-    #             al[i][j] = np.where(subgraph == al[i][j])[0][0]
-    #     OPT_X = MWIS(vl, al)
-    #     solution[subgraph] = OPT_X
-    #
-    # patterns = Z[solution]
-    #
-    # # Print Pattern Result
+    # print('Number of Raw Patterns: %d' % len(Z))
+
+    for i in range(len(Z) - 1, 0, -1):
+        for j in range(len(Z)):
+            if i == j:
+                continue
+            # Z[i] and Z[j] have the same support and Z[i] is a subsequence of Z[j]
+            if (Z[i].support == Z[j].support) & (is_subsequence(Z[i].pattern, Z[j].pattern)):
+                print('Z[%d] is a subsequence of Z[%d]: (%s) and (%s)' % (i, j, Z[i].pattern, Z[j].pattern))
+                # Delete Z[i]
+                del Z[i]
+                break
+
+    print('Number of Closed Patterns: %d' % len(Z))
+
+    Z = np.array(sorted(Z, key=lambda pattern: pattern.support, reverse=True))
+
+    # Prnt closed patterns
+    for pattern in Z:
+        print('%.2f\t%.100s' % (pattern.support, pattern.pattern))
+
+    # Vertex list contains the weight of the phase
+    # Edge list contains relationship among phases if two phases are overlapped
+    vertex_list = []
+    edge_list = []
+    for i in range(len(Z)):
+        # Weight is defined as the number_of_method * support_of_phase
+        vertex_list.append(Z[i].support * sum([len(id_list.ids[x]) for x in Z[i].pattern]))
+        for j in range(i + 1, len(Z)):
+            if is_intersect(Z[i], Z[j]):
+                print('%d and %d are overlapped' % (i, j))
+                edge_list.append((i, j))
+                edge_list.append((j, i))
+    vertex_list = np.array(vertex_list)
+    edge_list = np.array(edge_list)
+
+    adjacency_list = [[] for __ in vertex_list]
+    for edge in edge_list:
+        adjacency_list[edge[0]].append(edge[1])
+    adjacency_list = np.array(adjacency_list)
+
+    subgraphs = _generateSubgraphs(vertex_list, adjacency_list)
+
+    solution = np.zeros(len(vertex_list), dtype=bool)
+    for subgraph in subgraphs:
+        vl = np.array(copy.deepcopy(vertex_list[subgraph]))
+        al = np.array(copy.deepcopy(adjacency_list[subgraph]))
+        for i in range(len(al)):
+            for j in range(len(al[i])):
+                al[i][j] = np.where(subgraph == al[i][j])[0][0]
+        OPT_X = MWIS(vl, al)
+        solution[subgraph] = OPT_X
+
+    patterns = Z[solution]
+
+    # Print Pattern Result
+    for pattern in patterns:
+        print('%.2f\t%s' % (pattern.support, pattern.pattern))
+
+
     # for pattern in patterns:
-    #     print('%.2f\t%s' % (pattern.support, pattern.pattern))
-    #
-    #
-    # # for pattern in patterns:
-    # #     phases = []
-    # #     for phase in pattern[0]:
-    # #         phases.append(id_list.ids[phase])
-    # #     print('%.2f\t%s' % (pattern[2], phases))
-    #
-    # # Read method list and group names by patterns
-    # methods_df = pd.read_csv('method list/%s.csv' % app, header=None, names=('index', 'method_id'))
-    # methods = []
-    # for i,row in methods_df.iterrows():
-    #     words = []
-    #     # Remove text in bracket
-    #     string = re.sub(r'\([^)]*\)', '', row.method_id)
-    #     # Get method name and activity/fragment name only
-    #     terms = re.findall(r"[\w']+", string)[-2:]
-    #     for term in terms:
-    #         words += [x.lower() for x in re.findall('.[^A-Z]*', term)]
-    #     methods.append(words)
-    #
-    # # Build bag of word for each pattern
-    # pattern_methods = []
-    # for pattern in patterns:
-    #     documents = []
-    #     for phase in pattern.pattern:
-    #         documents.append(' '.join(methods[phase]))
-    #     pattern_methods.append(documents)
-    #
-    # # Perform TF-IDF
-    # for i in range(len(patterns)):
     #     phases = []
-    #     for phase in patterns[i].pattern:
+    #     for phase in pattern[0]:
     #         phases.append(id_list.ids[phase])
-    #     print('%.2f\t%s' % (patterns[i].support, phases))
-    #
-    #     vectorizer = TfidfVectorizer(use_idf=True)
-    #     tfIdf = vectorizer.fit_transform(pattern_methods[i])
-    #     df = pd.DataFrame(tfIdf[0].T.todense(), index=vectorizer.get_feature_names(), columns=["TF-IDF"])
-    #     df = df.sort_values('TF-IDF', ascending=False)
-    #     print(df.head(10))
+    #     print('%.2f\t%s' % (pattern[2], phases))
+
+    # Read method list and group names by patterns
+    methods_df = pd.read_csv('method list/%s.csv' % app, header=None, names=('index', 'method_id'))
+    methods = []
+    for i,row in methods_df.iterrows():
+        words = []
+        # Remove text in bracket
+        string = re.sub(r'\([^)]*\)', '', row.method_id)
+        # Get method name and activity/fragment name only
+        terms = re.findall(r"[\w']+", string)[-2:]
+        for term in terms:
+            words += [x.lower() for x in re.findall('.[^A-Z]*', term)]
+        methods.append(words)
+
+    # Build bag of word for each pattern
+    pattern_methods = []
+    for pattern in patterns:
+        documents = []
+        for phase in pattern.pattern:
+            documents.append(' '.join(methods[phase]))
+        pattern_methods.append(documents)
+
+    # Perform TF-IDF
+    for i in range(len(patterns)):
+        phases = []
+        for phase in patterns[i].pattern:
+            phases.append(id_list.ids[phase])
+        print('%.2f\t%s' % (patterns[i].support, phases))
+
+        vectorizer = TfidfVectorizer(use_idf=True)
+        tfIdf = vectorizer.fit_transform(pattern_methods[i])
+        df = pd.DataFrame(tfIdf[0].T.todense(), index=vectorizer.get_feature_names(), columns=["TF-IDF"])
+        df = df.sort_values('TF-IDF', ascending=False)
+        print(df.head(10))
 
 
 

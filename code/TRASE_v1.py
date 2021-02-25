@@ -13,12 +13,14 @@ class IdList:
             self.l_loc = np.empty(0)
             self.r_loc = np.empty(0)
             self.support = 0
+            self.score = 0
 
-        def __init__(self, pattern, l_loc, r_loc, support):
+        def __init__(self, pattern, l_loc, r_loc, support, score):
             self.pattern = pattern
             self.l_loc = l_loc
             self.r_loc = r_loc
             self.support = support
+            self.score = score
 
         def __eq__(self, other):
             return self.pattern == other.pattern
@@ -158,6 +160,7 @@ class IdList:
                     skip_candidate = True
                     break
             if skip_candidate:
+                self.pruned += 1
                 continue
 
             xl_loc = np.full(self.n_traces, np.nan)
@@ -173,7 +176,7 @@ class IdList:
                     should_add = False
                     break
             if should_add:
-                closed_patterns.add(self.Pattern(pattern, l_loc, r_loc, que_support))
+                closed_patterns.add(self.Pattern(pattern, l_loc, r_loc, que_support, score))
 
     # Find maximum sequential pattern given the starting element
     # Returns: Pattern, l_loc, r_loc, support
@@ -230,7 +233,7 @@ def is_intersect(A, B):
     with np.errstate(invalid='ignore'):
         return any((A.r_loc >= B.l_loc) & (B.r_loc >= A.l_loc))
 
-def _generateSubgraphs(vertex_list, adjacency_list):
+def generateSubgraphs(vertex_list, adjacency_list):
     subgraphs = []
     freeVertices = list(np.arange(len(vertex_list)))
     while freeVertices:
@@ -374,7 +377,7 @@ def MWIS(vertexWeight, adjacencyList):
     return _BBND(vertexWeight, adjacencyList, LB, X)
 
 
-def TRASE(out_q, seq_db, min_sup, min_size=1, max_gap=1):
+def TRASE(seq_db, min_sup, min_size=1, max_gap=1, out_q=None):
     # Build ID List
     id_list = IdList()
     id_list.build_list(seq_db, min_sup, max_gap)
@@ -415,6 +418,9 @@ def TRASE(out_q, seq_db, min_sup, min_size=1, max_gap=1):
         # Pattern is Valid and added to Z
         Z += patterns
 
-    out_q.put(Z)
-    # return (id_list, Z)
+    if out_q is None:
+        return (id_list, Z)
+    else:
+        out_q.put((id_list, Z))
+
     return None
