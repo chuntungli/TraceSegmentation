@@ -207,10 +207,10 @@ methodNumInPhase_sigma = methodNumInPhase_mu * 0.1
 phaseRep_mu = 1
 phaseRep_sigma = 0
 
-n_fold = 2
+n_fold = 5
 candidates = np.arange(10, 110, 20)
 
-noise_factor = 0.1
+noise_factor = 0.15
 
 '''
     =====================================================================
@@ -382,8 +382,6 @@ phaseUniqueAmount = int(patternUniqueAmount * (patternNum_mu + 1))
 # Distribution of number of patterns in sequences
 patternInSeq_mu = 20
 patternInSeq_sigma = patternInSeq_mu * 0.1
-
-noise_factor = 0.025
 
 # Distribution of number of patterns repeated
 patternRep_mu = 20

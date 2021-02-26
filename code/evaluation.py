@@ -14,9 +14,9 @@ from TRASE_v1 import *
 from pygapbide import *
 
 
-min_sup = 0.4
+min_sup = 0.5
 min_size = 50
-max_gap = 2
+max_gap = 5
 
 
 def build_seqDB(folder_path):
@@ -84,7 +84,7 @@ def evaluate(data_folder, gt_folder):
                     continue
                 # Z[i] and Z[j] have the same support and Z[i] is a subsequence of Z[j]
                 if (Z[i].support == Z[j].support) & (is_subsequence(Z[i].pattern, Z[j].pattern)):
-                    print('Z[%d] is a subsequence of Z[%d]: (%s) and (%s)' % (i, j, Z[i].pattern, Z[j].pattern))
+                    # print('Z[%d] is a subsequence of Z[%d]: (%s) and (%s)' % (i, j, Z[i].pattern, Z[j].pattern))
                     # Delete Z[i]
                     del Z[i]
                     break
@@ -100,7 +100,7 @@ def evaluate(data_folder, gt_folder):
             vertex_list.append(Z[i].support * sum([len(id_list.ids[x]) for x in Z[i].pattern]))
             for j in range(i + 1, len(Z)):
                 if is_intersect(Z[i], Z[j]):
-                    print('%d and %d are overlapped' % (i, j))
+                    # print('%d and %d are overlapped' % (i, j))
                     edge_list.append((i, j))
                     edge_list.append((j, i))
         vertex_list = np.array(vertex_list)
@@ -168,8 +168,9 @@ def evaluate(data_folder, gt_folder):
 
             precision = safe_div(TP, (TP + FP))
             recall = safe_div(TP, (TP + FN))
+            f1 = 2 * safe_div((precision * recall), (precision + recall))
 
-            results.append((fold, label, pt_count[label], precision, recall))
+            results.append((fold, label, pt_count[label], precision, recall, f1))
 
     return results
     #
@@ -231,8 +232,8 @@ def evaluate(data_folder, gt_folder):
     # return time_record
 
 data_folder = 'components/synthetic/performance'
-gt_folder = 'groundtruth/synthetic'
+gt_folder = 'groundtruth/synthetic/performance'
 
 results = evaluate(data_folder, gt_folder)
-results = pd.DataFrame(results, columns=('fold', 'label', 'seg_count', 'precision', 'recall'))
+results = pd.DataFrame(results, columns=('fold', 'label', 'seg_count', 'precision', 'recall', 'f1'))
 print(results.groupby('fold').agg(['mean']))
