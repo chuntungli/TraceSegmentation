@@ -210,7 +210,7 @@ phaseRep_sigma = 0
 n_fold = 5
 candidates = np.arange(10, 110, 20)
 
-noise_factor = 0.15
+noise_factor = 0.05
 
 '''
     =====================================================================

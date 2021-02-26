@@ -14,11 +14,6 @@ from TRASE_v1 import *
 from pygapbide import *
 
 
-min_sup = 0.5
-min_size = 50
-max_gap = 5
-
-
 def build_seqDB(folder_path):
     traces = sorted(os.listdir(folder_path))
 
@@ -58,7 +53,7 @@ def safe_div(a,b):
     else:
         return a/b
 
-def evaluate(data_folder, gt_folder):
+def evaluate(data_folder, gt_folder, min_sup=0.3, min_size=1, max_gap=1):
     results = []
     for fold in sorted(os.listdir(data_folder)):
         if not fold.isdigit():
@@ -126,8 +121,8 @@ def evaluate(data_folder, gt_folder):
         patterns = Z[solution]
 
         # Print Pattern Result
-        for pattern in patterns:
-            print('%.2f\t%s' % (pattern.support, pattern.pattern))
+        # for pattern in patterns:
+        #     print('%.2f\t%s' % (pattern.support, pattern.pattern))
 
         # Construct list of groundtruth
         labels = list(groundtruth.keys())
@@ -234,6 +229,23 @@ def evaluate(data_folder, gt_folder):
 data_folder = 'components/synthetic/performance'
 gt_folder = 'groundtruth/synthetic/performance'
 
-results = evaluate(data_folder, gt_folder)
-results = pd.DataFrame(results, columns=('fold', 'label', 'seg_count', 'precision', 'recall', 'f1'))
-print(results.groupby('fold').agg(['mean']))
+min_sup = 0.5
+min_size = 50
+
+for max_gap in np.arange(1,4):
+
+    results = evaluate(data_folder, gt_folder, min_sup, min_size, max_gap)
+    results = pd.DataFrame(results, columns=('fold', 'label', 'seg_count', 'precision', 'recall', 'f1'))
+
+    # Aggregate the results
+    agg_result = []
+    for fold in results.fold.unique():
+        fold_result = results[results.fold == fold]
+        rmse = np.sqrt(np.sum((fold_result.seg_count - 1) ** 2) / len(fold_result))
+        agg_result.append([rmse] + list(fold_result[['precision', 'recall', 'f1']].mean()))
+
+    agg_result = pd.DataFrame(agg_result, columns=('rmse', 'precision', 'recall', 'f1'))
+    # Print the aggregated Result
+    mean_result = agg_result.mean()
+    std_result = agg_result.std()
+    print('\nMaxGap: %d\tRMSE: %.2f ±%.2f\tPrecision: %.2f ±%.2f\tRecall: %.2f ±%.2f\tF1: %.2f ±%.2f' % (max_gap, mean_result[0], std_result[0], mean_result[1], std_result[1], mean_result[2], std_result[2], mean_result[3], std_result[3]))
