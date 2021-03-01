@@ -161,8 +161,8 @@ def evaluate(data_folder, gt_folder, min_sup=0.3, min_size=1, max_gap=1):
             FP = len(pt_set.difference(gt_set))
             FN = len(gt_set.difference(pt_set))
 
-            precision = safe_div(TP, (TP + FP))
-            recall = safe_div(TP, (TP + FN))
+            precision = safe_div(TP, (TP + FP)) * 100
+            recall = safe_div(TP, (TP + FN)) * 100
             f1 = 2 * safe_div((precision * recall), (precision + recall))
 
             results.append((fold, label, pt_count[label], precision, recall, f1))
@@ -230,9 +230,9 @@ data_folder = 'components/synthetic/performance'
 gt_folder = 'groundtruth/synthetic/performance'
 
 min_sup = 0.5
-min_size = 50
+min_size = 100
 
-for max_gap in np.arange(1,4):
+for max_gap in np.arange(1,6):
 
     results = evaluate(data_folder, gt_folder, min_sup, min_size, max_gap)
     results = pd.DataFrame(results, columns=('fold', 'label', 'seg_count', 'precision', 'recall', 'f1'))
@@ -248,4 +248,6 @@ for max_gap in np.arange(1,4):
     # Print the aggregated Result
     mean_result = agg_result.mean()
     std_result = agg_result.std()
-    print('\nMaxGap: %d\tRMSE: %.2f ±%.2f\tPrecision: %.2f ±%.2f\tRecall: %.2f ±%.2f\tF1: %.2f ±%.2f' % (max_gap, mean_result[0], std_result[0], mean_result[1], std_result[1], mean_result[2], std_result[2], mean_result[3], std_result[3]))
+    # print('\nMaxGap: %d\tRMSE: %.2f (± %.2f)\tPrecision: %.2f (± %.2f)\tRecall: %.2f (± %.2f)\tF1: %.2f (± %.2f)' % (max_gap, mean_result[0], std_result[0], mean_result[1], std_result[1], mean_result[2], std_result[2], mean_result[3], std_result[3]))
+    # print('\nMaxGap: %d\tRMSE: %.2f\tPrecision: %.2f\tRecall: %.2f\tF1: %.2f' % (max_gap, mean_result[0], mean_result[1], mean_result[2], mean_result[3]))
+    print('%d\t & %.2f\t & %.2f\t & %.2f\t & %.2f' % (max_gap, mean_result[0], mean_result[1], mean_result[2], mean_result[3]))

@@ -9,6 +9,7 @@ import shutil
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
+import matplotlib.pyplot as plt
 
 # from spmf import Spmf
 from itertools import groupby
@@ -297,8 +298,27 @@ if __name__ == '__main__':
     print(time_df.groupby(by=['method', 'seq_len']).agg({'time': ['mean', 'std']}))
 
 
+# Read data for Pattern Length
+df = pd.read_csv('%s/time_pat_len.csv' % result_folder)
+df['pat_size'] = df['pat_len'] * 20
+aggResult = df.groupby(['pat_size']).agg({'time': ['mean']})
 
 
+fig = plt.figure(figsize=(4,3), dpi=120)
+plt.plot(aggResult.index,
+         aggResult.time,
+         linestyle = '--', marker = 's', fillstyle = 'none', label = 'TRASE')
+# plt.xlim((-0.05,1.05))
+# plt.ylim((-5,105))
+plt.xlabel('Pattern Size', fontsize=12)
+plt.ylabel("Execution Time(sec)", fontsize=12)
+plt.gca().yaxis.grid(True, linestyle='--')
+#plt.legend(loc='upper center', bbox_to_anchor=(0.5,1.15), ncol = 3)
+plt.legend(loc='right', bbox_to_anchor=(0.93,0.55))
+fig.tight_layout()
+plt.show()
+# fig.savefig('fig_tau_effect.pdf', format='pdf')
+plt.close(fig)
 
 # # Print Pattern Result
 # for p in patterns:
