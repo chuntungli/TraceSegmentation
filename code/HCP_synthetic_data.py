@@ -106,7 +106,7 @@ def sequenceDB_and_dict(patternSet,pattern_temp,patternInSeq_mu,patternInSeq_sig
     seqNormInt = list(np.round(seqNormNum).astype(int))
     diff = len(pattern_temp) - sum(seqNormInt)
     if diff < 0:
-        pattern_temp += random.sample(range(len(patternSet)), -diff)
+        pattern_temp += random.choices(range(len(patternSet)), k=-diff)
     if diff > 0:
         seqNormInt.append(len(pattern_temp) - sum(seqNormInt))
 
@@ -208,9 +208,8 @@ phaseRep_mu = 1
 phaseRep_sigma = 0
 
 n_fold = 5
-candidates = np.arange(10, 110, 20)
 
-noise_factor = 0.2
+noise_factor = 0.1
 
 '''
     =====================================================================
@@ -230,7 +229,7 @@ patternRep_mu = 20
 patternRep_sigma = patternRep_mu * 0.1
 
 # for pat_len in [5, 10, 25, 50, 100, 250, 500, 1000]:
-for pat_len in candidates:
+for pat_len in [10, 20, 30, 40, 50]:
 
     # Distribution of number of phases in patterns
     patternNum_mu = pat_len
@@ -278,7 +277,7 @@ patternNum_sigma = patternNum_mu * 0.1
 patternRep_mu = 20
 patternRep_sigma = patternRep_mu * 0.1
 
-for seq_len in candidates:
+for seq_len in [10, 20, 50, 100, 200, 500]:
 
     # Number of patterns
     patternUniqueAmount = seq_len
@@ -332,7 +331,7 @@ phaseUniqueAmount = int(patternUniqueAmount * (patternNum_mu + 1))
 patternInSeq_mu = 20
 patternInSeq_sigma = patternInSeq_mu * 0.1
 
-for n_seq in candidates:
+for n_seq in [10, 50, 100, 200, 500]:
 
     # Distribution of number of patterns repeated
     patternRep_mu = n_seq
@@ -369,48 +368,47 @@ for n_seq in candidates:
     =====================================================================
 '''
 
-# Number of patterns
-patternUniqueAmount = 20
-
-# Distribution of number of phases in patterns
-patternNum_mu = 20
-patternNum_sigma = patternNum_mu * 0.1
-
-# Number of unique phases
-phaseUniqueAmount = int(patternUniqueAmount * (patternNum_mu + 1))
-
-# Distribution of number of patterns in sequences
-patternInSeq_mu = 20
-patternInSeq_sigma = patternInSeq_mu * 0.1
-
-# Distribution of number of patterns repeated
-patternRep_mu = 20
-patternRep_sigma = patternRep_mu * 0.1
-
-
-for fold in range(n_fold):
-
-    method = method_pool(methodUniqueAmount, fold)
-    phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, fold)
-    pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, fold)
-
-    '''
-        Parameters for generating sequences
-    '''
-    pattern_set, pattern_no = pattern_pool(pattern, phase, patternRep_mu, patternRep_sigma, len(pattern), fold)
-    sequence_number_in_db = math.floor(len(pattern_no) / patternInSeq_mu)
-    pattern_dictionary, sequence_database, sequence_database_list = \
-        sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, np.random.rand() * noise_factor)
-
-    # Write with pickle
-    folder = 'components/synthetic/performance/%d' % fold
-    os.makedirs(folder)
-    for i in range(len(sequence_database)):
-        pickle.dump(sequence_database[i], open('%s/seq_%d.p' % (folder, i), "wb"))
-    folder = 'groundtruth/synthetic/performance/%d' % fold
-    os.makedirs(folder)
-    pickle.dump(pattern_dictionary, open('%s/groundtruth.p' % folder, 'wb'))
-
+# # Number of patterns
+# patternUniqueAmount = 20
+#
+# # Distribution of number of phases in patterns
+# patternNum_mu = 20
+# patternNum_sigma = patternNum_mu * 0.1
+#
+# # Number of unique phases
+# phaseUniqueAmount = int(patternUniqueAmount * (patternNum_mu + 1))
+#
+# # Distribution of number of patterns in sequences
+# patternInSeq_mu = 20
+# patternInSeq_sigma = patternInSeq_mu * 0.1
+#
+# # Distribution of number of patterns repeated
+# patternRep_mu = 20
+# patternRep_sigma = patternRep_mu * 0.1
+#
+#
+# for fold in range(n_fold):
+#
+#     method = method_pool(methodUniqueAmount, fold)
+#     phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, fold)
+#     pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, fold)
+#
+#     '''
+#         Parameters for generating sequences
+#     '''
+#     pattern_set, pattern_no = pattern_pool(pattern, phase, patternRep_mu, patternRep_sigma, len(pattern), fold)
+#     sequence_number_in_db = math.floor(len(pattern_no) / patternInSeq_mu)
+#     pattern_dictionary, sequence_database, sequence_database_list = \
+#         sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, np.random.rand() * noise_factor)
+#
+#     # Write with pickle
+#     folder = 'components/synthetic/performance/%d' % fold
+#     os.makedirs(folder)
+#     for i in range(len(sequence_database)):
+#         pickle.dump(sequence_database[i], open('%s/seq_%d.p' % (folder, i), "wb"))
+#     folder = 'groundtruth/synthetic/performance/%d' % fold
+#     os.makedirs(folder)
+#     pickle.dump(pattern_dictionary, open('%s/groundtruth.p' % folder, 'wb'))
 
 
 

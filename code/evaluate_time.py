@@ -260,7 +260,7 @@ if __name__ == '__main__':
     time_df = pd.DataFrame(time_record, columns=('method', 'pat_len', 'fold', 'time'))
     time_df = time_df.astype({'time': 'double'})
     performance_df = pd.DataFrame(performance_record, columns=('pat_len', 'fold', 'label', 'seg_count', 'precision', 'recall'))
-    time_df.to_csv('%s/time_result_pat_len.csv' % result_folder, index=False)
+    time_df.to_csv('%s/result_pat_len.csv' % result_folder, index=False)
     performance_df.to_csv('%s/performance_result_pat_len.csv' % result_folder, index=False)
 
     print(time_df.groupby(by=['method', 'pat_len']).agg({'time': ['mean', 'std']}))
@@ -298,10 +298,41 @@ if __name__ == '__main__':
     print(time_df.groupby(by=['method', 'seq_len']).agg({'time': ['mean', 'std']}))
 
 
-# Read data for Pattern Length
-df = pd.read_csv('%s/time_pat_len.csv' % result_folder)
-df['pat_size'] = df['pat_len'] * 20
-aggResult = df.groupby(['pat_size']).agg({'time': ['mean']})
+result_folder = 'result'
+
+'''
+============================================================
+                Read data for Pattern Length
+============================================================
+'''
+
+df = pd.read_csv('%s/result_pat_len.csv' % result_folder)
+aggResult = df.groupby(['pat_len']).agg({'time': ['mean']})
+
+fig = plt.figure(figsize=(4,3), dpi=120)
+plt.plot(aggResult.index,
+         aggResult.time,
+         linestyle = '--', marker = 's', fillstyle = 'none', label = 'TRASE')
+# plt.xlim((-0.05,1.05))
+# plt.ylim((-5,105))
+plt.xlabel('Pattern Length', fontsize=12)
+plt.ylabel("Execution Time(sec)", fontsize=12)
+plt.gca().yaxis.grid(True, linestyle='--')
+#plt.legend(loc='upper center', bbox_to_anchor=(0.5,1.15), ncol = 3)
+plt.legend(loc='right', bbox_to_anchor=(0.4,0.9))
+fig.tight_layout()
+plt.show()
+fig.savefig('fig_result_pat_len.pdf', format='pdf')
+plt.close(fig)
+
+'''
+============================================================
+                Read data for Number of Sequences
+============================================================
+'''
+
+df = pd.read_csv('%s/result_n_seq.csv' % result_folder)
+aggResult = df.groupby(['n_seq']).agg({'time': ['mean']})
 
 
 fig = plt.figure(figsize=(4,3), dpi=120)
@@ -310,14 +341,39 @@ plt.plot(aggResult.index,
          linestyle = '--', marker = 's', fillstyle = 'none', label = 'TRASE')
 # plt.xlim((-0.05,1.05))
 # plt.ylim((-5,105))
-plt.xlabel('Pattern Size', fontsize=12)
+plt.xlabel('No. of Sequences', fontsize=12)
+plt.ylabel("Execution Time(sec)", fontsize=12)
+plt.gca().yaxis.grid(True, linestyle='--')
+plt.legend(loc='right', bbox_to_anchor=(0.4,0.9))
+fig.tight_layout()
+plt.show()
+fig.savefig('fig_result_n_seq.pdf', format='pdf')
+plt.close(fig)
+
+'''
+============================================================
+                Read data for Sequence Length
+============================================================
+'''
+
+df = pd.read_csv('%s/result_seq_len.csv' % result_folder)
+aggResult = df.groupby(['seq_len']).agg({'time': ['mean']})
+
+
+fig = plt.figure(figsize=(4,3), dpi=120)
+plt.plot(aggResult.index,
+         aggResult.time,
+         linestyle = '--', marker = 's', fillstyle = 'none', label = 'TRASE')
+# plt.xlim((-0.05,1.05))
+plt.ylim((0,11))
+plt.xlabel('Sequence Length', fontsize=12)
 plt.ylabel("Execution Time(sec)", fontsize=12)
 plt.gca().yaxis.grid(True, linestyle='--')
 #plt.legend(loc='upper center', bbox_to_anchor=(0.5,1.15), ncol = 3)
-plt.legend(loc='right', bbox_to_anchor=(0.93,0.55))
+plt.legend(loc='right', bbox_to_anchor=(0.4,0.9))
 fig.tight_layout()
 plt.show()
-# fig.savefig('fig_tau_effect.pdf', format='pdf')
+fig.savefig('fig_result_seq_len.pdf', format='pdf')
 plt.close(fig)
 
 # # Print Pattern Result
