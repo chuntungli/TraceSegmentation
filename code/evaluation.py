@@ -229,7 +229,7 @@ def evaluate(data_folder, gt_folder, min_sup=0.3, min_size=1, max_gap=1):
 data_folder = 'components/synthetic/performance'
 gt_folder = 'groundtruth/synthetic/performance'
 
-min_sup = 0.5
+min_sup = 0.6
 min_size = 100
 
 for max_gap in np.arange(1,6):

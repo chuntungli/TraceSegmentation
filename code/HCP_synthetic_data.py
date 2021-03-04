@@ -209,7 +209,7 @@ phaseRep_sigma = 0
 
 n_fold = 5
 
-noise_factor = 0.1
+noise_factor = 0.2
 
 '''
     =====================================================================
@@ -229,7 +229,7 @@ patternRep_mu = 20
 patternRep_sigma = patternRep_mu * 0.1
 
 # for pat_len in [5, 10, 25, 50, 100, 250, 500, 1000]:
-for pat_len in [10, 20, 30, 40, 50]:
+for pat_len in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
 
     # Distribution of number of phases in patterns
     patternNum_mu = pat_len
@@ -277,7 +277,11 @@ patternNum_sigma = patternNum_mu * 0.1
 patternRep_mu = 20
 patternRep_sigma = patternRep_mu * 0.1
 
-for seq_len in [10, 20, 50, 100, 200, 500]:
+method = method_pool(methodUniqueAmount, seed)
+phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, seed)
+pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, seed)
+
+for seq_len in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
 
     # Number of patterns
     patternUniqueAmount = seq_len
@@ -285,10 +289,6 @@ for seq_len in [10, 20, 50, 100, 200, 500]:
     # Distribution of number of patterns in sequences
     patternInSeq_mu = patternUniqueAmount
     patternInSeq_sigma = 0.1 * patternInSeq_mu
-
-    method = method_pool(methodUniqueAmount, seed)
-    phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, seed)
-    pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, seed)
 
     for fold in range(n_fold):
 
@@ -331,15 +331,15 @@ phaseUniqueAmount = int(patternUniqueAmount * (patternNum_mu + 1))
 patternInSeq_mu = 20
 patternInSeq_sigma = patternInSeq_mu * 0.1
 
-for n_seq in [10, 50, 100, 200, 500]:
+method = method_pool(methodUniqueAmount, seed)
+phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, seed)
+pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, seed)
+
+for n_seq in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
 
     # Distribution of number of patterns repeated
     patternRep_mu = n_seq
     patternRep_sigma = n_seq * 0.1
-
-    method = method_pool(methodUniqueAmount, seed)
-    phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, seed)
-    pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, seed)
 
     for fold in range(n_fold):
 
