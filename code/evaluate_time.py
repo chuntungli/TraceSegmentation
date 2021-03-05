@@ -88,12 +88,6 @@ def evaluate(data_folder, gt_folder):
             print('\nRuntime of TRASE: %.2fs\tNo. of Patterns: %d' % (TRASE_time, len(Z)))
             time_record.append(('TRASE', int(value), fold, '%.3f' % TRASE_time))
 
-            '''
-                =================================================================
-                                    Gap-Bide Algorithm
-                =================================================================
-            '''
-
             # Convert the trace to other format
             sdb = []
             for trace in sequence_db:
@@ -101,6 +95,20 @@ def evaluate(data_folder, gt_folder):
                 for event in trace:
                     s.append(id_list.ids.index(event))
                 sdb.append(s)
+
+            # Write data to file
+            f = open("%temp.txt", "w+")
+            for trace in sdb:
+                for i in range(len(trace)):
+                    f.write('%d -1 ' % trace[i])
+                f.write('-2\r\n')
+            f.close()
+
+            '''
+                =================================================================
+                                    Gap-Bide Algorithm
+                =================================================================
+            '''
 
             if not skip_gb:
                 start = time.time()
@@ -136,14 +144,6 @@ def evaluate(data_folder, gt_folder):
                 =================================================================
             '''
 
-            # Write data to file
-            f = open("%temp.txt", "w+")
-            for trace in temp_data:
-                for i in range(len(trace)):
-                    f.write('%d -1 ' % trace[i])
-                f.write('-2\r\n')
-            f.close()
-
             if not skip_vmsp:
 
                 start = time.time()
@@ -174,14 +174,6 @@ def evaluate(data_folder, gt_folder):
                                         SPAM Algorithm
                 =================================================================
             '''
-
-            # Write data to file
-            f = open("temp.txt", "w+")
-            for trace in temp_data:
-                for i in range(len(trace)):
-                    f.write('%d -1 ' % trace[i])
-                f.write('-2\r\n')
-            f.close()
 
             if not skip_spam:
 
