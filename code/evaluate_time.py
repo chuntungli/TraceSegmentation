@@ -60,10 +60,14 @@ def safe_div(a,b):
 def evaluate(data_folder, gt_folder):
     performance_record = []
     time_record = []
+    should_skip = False
 
     for value in sorted(os.listdir(data_folder)):
         if not value.isdigit():
             continue
+
+        if should_skip:
+            break
 
         folds = sorted(os.listdir('%s/%s' % (data_folder, value)))
 
@@ -186,51 +190,54 @@ def evaluate(data_folder, gt_folder):
                 =================================================================
             '''
 
-            # # Convert the trace to other format
-            # sdb = []
-            # for trace in sequence_db:
-            #     s = []
-            #     for event in trace:
-            #         s.append(id_list.ids.index(event))
-            #     sdb.append(s)
-            #
-            # # Write data to file
-            # # f = open("%s.txt" % app, "w+")
-            # # for trace in temp_data:
-            # #     for i in range(len(trace)):
-            # #         f.write('%d -1 ' % trace[i])
-            # #     f.write('-2\r\n')
-            # # f.close()
-            #
-            # # All Sequential Patterns
-            # # spmf = Spmf("SPAM", input_filename="%s.txt" % app, output_filename="output.txt", arguments=[0.6, 5, 500, max_gap, False])
-            #
-            # # Closed Sequential Patterns
-            # start = time.time()
-            #
-            # gb = Gapbide(sdb, int(min_sup * id_list.n_traces), 0, max_gap - 1)
-            #
-            # q = mp.Queue()
-            # p = mp.Process(target=gb.run, args=(q,))
-            # p.start()
-            #
-            # try:
-            #     patterns = q.get(timeout=time_out)
-            # except Exception:
-            #     patterns = []
-            #
-            # p.join(timeout=time_out)
-            #
-            # if p.is_alive():
-            #     p.kill()
-            #     GB_time = np.inf
-            # else:
-            #     GB_time = time.time() - start
-            #
-            # print('\nRuntime of Gap-Bide: %.2fs\tNo. of Patterns: %d' % (GB_time, len(patterns)))
-            # time_record.append(('GAP-BIDE', int(value), fold, '%.3f' % GB_time))
+            # Convert the trace to other format
+            sdb = []
+            for trace in sequence_db:
+                s = []
+                for event in trace:
+                    s.append(id_list.ids.index(event))
+                sdb.append(s)
 
-            # Maximal Sequential Patterns
+            # Write data to file
+            # f = open("%s.txt" % app, "w+")
+            # for trace in temp_data:
+            #     for i in range(len(trace)):
+            #         f.write('%d -1 ' % trace[i])
+            #     f.write('-2\r\n')
+            # f.close()
+
+            # All Sequential Patterns
+            # spmf = Spmf("SPAM", input_filename="%s.txt" % app, output_filename="output.txt", arguments=[0.6, 5, 500, max_gap, False])
+
+            # Closed Sequential Patterns
+            start = time.time()
+
+            gb = Gapbide(sdb, int(min_sup * id_list.n_traces), 0, max_gap - 1)
+
+            q = mp.Queue()
+            p = mp.Process(target=gb.run, args=(q,))
+            p.start()
+
+            try:
+                patterns = q.get(timeout=time_out)
+            except Exception:
+                patterns = []
+
+            p.join(timeout=time_out)
+
+            if p.is_alive():
+                p.terminate()
+                GB_time = np.inf
+                should_skip = True
+                print('Method time out at value: %s' % value)
+                break
+            else:
+                GB_time = time.time() - start
+
+            print('\nRuntime of Gap-Bide: %.2fs\tNo. of Patterns: %d' % (GB_time, len(patterns)))
+            time_record.append(('GAP-BIDE', int(value), fold, '%.3f' % GB_time))
+
+            # # Maximal Sequential Patterns
             # spmf = Spmf("VMSP", input_filename="%s.txt" % app, output_filename="output.txt", arguments=['%d%%' % (min_support * 100), 500, max_gap, False])
             # spmf.run()
             # print(spmf.to_pandas_dataframe(pickle=True))
@@ -250,7 +257,7 @@ if __name__ == '__main__':
         =================================================================
     '''
 
-    min_sup = 0.6
+    min_sup = 0.5
     min_size = 100
     max_gap = 2
     time_out = 500
