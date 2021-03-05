@@ -137,7 +137,7 @@ def evaluate(data_folder, gt_folder):
             '''
 
             # Write data to file
-            f = open("%s.txt" % app, "w+")
+            f = open("%temp.txt", "w+")
             for trace in temp_data:
                 for i in range(len(trace)):
                     f.write('%d -1 ' % trace[i])
@@ -149,7 +149,7 @@ def evaluate(data_folder, gt_folder):
                 start = time.time()
 
                 # Maximal Sequential Patterns
-                spmf = Spmf("VMSP", input_filename="%s.txt" % app, output_filename="output.txt",
+                spmf = Spmf("VMSP", input_filename="temp.txt", output_filename="output.txt",
                             arguments=['%d%%' % (min_support * 100), 100, max_gap, False])
 
                 p = mp.Process(target=spmf.run)
@@ -176,7 +176,7 @@ def evaluate(data_folder, gt_folder):
             '''
 
             # Write data to file
-            f = open("%s.txt" % app, "w+")
+            f = open("temp.txt", "w+")
             for trace in temp_data:
                 for i in range(len(trace)):
                     f.write('%d -1 ' % trace[i])
@@ -188,7 +188,7 @@ def evaluate(data_folder, gt_folder):
                 start = time.time()
 
                 # Maximal Sequential Patterns
-                spmf = Spmf("SPAM", input_filename="%s.txt" % app, output_filename="output.txt",
+                spmf = Spmf("SPAM", input_filename="temp.txt", output_filename="output.txt",
                             arguments=['%d%%' % (min_support * 100), 10, 100, max_gap, False])
 
                 p = mp.Process(target=spmf.run)
