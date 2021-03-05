@@ -1,0 +1,7 @@
+README.md
+setup.py
+spmf/__init__.py
+spmf.egg-info/PKG-INFO
+spmf.egg-info/SOURCES.txt
+spmf.egg-info/dependency_links.txt
+spmf.egg-info/top_level.txt

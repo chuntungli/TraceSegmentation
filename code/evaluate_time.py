@@ -11,7 +11,7 @@ import pandas as pd
 import multiprocessing as mp
 import matplotlib.pyplot as plt
 
-# from spmf import Spmf
+from spmf import Spmf
 from itertools import groupby
 
 from TRASE_v1 import *
