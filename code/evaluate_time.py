@@ -57,7 +57,7 @@ def safe_div(a,b):
     else:
         return a/b
 
-def evaluate(data_folder, gt_folder):
+def evaluate(data_folder, gt_folder, min_sup, min_size, max_gap):
     performance_record = []
     time_record = []
     skip_gb = skip_spam = skip_vmsp = False
@@ -150,7 +150,7 @@ def evaluate(data_folder, gt_folder):
 
                 # Maximal Sequential Patterns
                 spmf = Spmf("VMSP", input_filename="temp.txt", output_filename="output.txt",
-                            arguments=['%d%%' % (min_support * 100), 100, max_gap, False])
+                            arguments=['%d%%' % (min_sup * 100), 100, max_gap, False])
 
                 p = mp.Process(target=spmf.run)
                 p.start()
@@ -181,7 +181,7 @@ def evaluate(data_folder, gt_folder):
 
                 # Maximal Sequential Patterns
                 spmf = Spmf("SPAM", input_filename="temp.txt", output_filename="output.txt",
-                            arguments=['%d%%' % (min_support * 100), 10, 100, max_gap, False])
+                            arguments=['%d%%' % (min_sup * 100), 10, 100, max_gap, False])
 
                 p = mp.Process(target=spmf.run)
                 p.start()
@@ -223,7 +223,7 @@ if __name__ == '__main__':
     time_out = 500
 
     # Test time on different number of sequences
-    time_record, performance_record = evaluate('components/synthetic/pat_len', 'groundtruth/synthetic/pat_len')
+    time_record, performance_record = evaluate('components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size, max_gap)
     time_df = pd.DataFrame(time_record, columns=('method', 'pat_len', 'fold', 'time'))
     time_df = time_df.astype({'time': 'double'})
     performance_df = pd.DataFrame(performance_record, columns=('pat_len', 'fold', 'label', 'seg_count', 'precision', 'recall'))
@@ -239,7 +239,7 @@ if __name__ == '__main__':
     '''
 
     # Test time on different number of sequences
-    time_record, performance_record = evaluate('components/synthetic/n_seq', 'groundtruth/synthetic/n_seq')
+    time_record, performance_record = evaluate('components/synthetic/n_seq', 'groundtruth/synthetic/n_seq', min_sup, min_size, max_gap)
 
     time_df = pd.DataFrame(time_record, columns=('method', 'n_seq', 'fold', 'time'))
     time_df = time_df.astype({'time': 'double'})
@@ -255,7 +255,7 @@ if __name__ == '__main__':
     '''
 
     # Test time on different number of sequences
-    time_record, performance_record = evaluate('components/synthetic/seq_len', 'groundtruth/synthetic/seq_len')
+    time_record, performance_record = evaluate('components/synthetic/seq_len', 'groundtruth/synthetic/seq_len', min_sup, min_size, max_gap)
 
     time_df = pd.DataFrame(time_record, columns=('method', 'seq_len', 'fold', 'time'))
     time_df = time_df.astype({'time': 'double'})
