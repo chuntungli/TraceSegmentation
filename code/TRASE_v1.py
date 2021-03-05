@@ -144,11 +144,10 @@ class IdList:
                 return
 
         # Sort search space by support
-        ordered_candidates = sorted(cand_supports, key=cand_supports.get)
-        for candidate in ordered_candidates:
+        ordered_candidates = sorted(cand_supports.items(), key=lambda x: (x[1], -x[0]), reverse=True)
+        for candidate, support in ordered_candidates:
             extended_pattern = pattern + [candidate]
             matches = cand_matches[candidate]
-            support = cand_supports[candidate]
 
             if support <= self.min_support:
                 continue
