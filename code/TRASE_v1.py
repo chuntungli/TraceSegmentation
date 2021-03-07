@@ -109,7 +109,7 @@ class IdList:
     # Extend pattern by depth-first-search manner
     def __extend_pattern(self, closed_patterns, pattern, l_loc, r_loc, que_support, best_score):
         # print('\rExplored: %d\tPruned: %d\tExploring: %.2f - %s' % (self.explored, self.pruned, que_support, pattern), end='')
-        print('\rTRASE - Explored: %d\tPruned: %d' % (self.explored, self.pruned), end='')
+        # print('\rTRASE - Explored: %d\tPruned: %d' % (self.explored, self.pruned), end='')
         self.explored += 1
 
         is_closed = True

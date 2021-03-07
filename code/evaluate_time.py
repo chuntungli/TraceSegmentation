@@ -2,6 +2,7 @@
 
 
 import os
+import sys
 import copy
 import time
 import pickle
@@ -16,7 +17,6 @@ from itertools import groupby
 
 from TRASE_v1 import *
 from pygapbide import *
-
 
 def build_seqDB(folder_path):
     traces = sorted(os.listdir(folder_path))
@@ -57,16 +57,32 @@ def safe_div(a,b):
     else:
         return a/b
 
-def evaluate(data_folder, gt_folder, min_sup, min_size, max_gap):
-    performance_record = []
+def evaluate(method, data_folder, gt_folder, min_sup, min_size, max_gap, time_out=100):
+    # performance_record = []
     time_record = []
-    skip_gb = skip_spam = skip_vmsp = False
+    skip_trase = skip_gb = skip_spam = skip_vmsp = True
+    is_timeout = False
+
+    if method == 'GAP_BIDE':
+        skip_gb = False
+    elif method == 'SPAM':
+        skip_spam = False
+    elif method == 'VMSP':
+        skip_vmsp = False
+    else:
+        skip_trase = False
 
     for value in sorted(os.listdir(data_folder)):
         if not value.isdigit():
             continue
 
+        # if is_timeout:
+        #     break
+
         folds = sorted(os.listdir('%s/%s' % (data_folder, value)))
+
+        print('=============================================================')
+        print('Running Experiment on: %s - %s\n' % (data_folder, value))
 
         for fold in folds:
             fold = int(fold)
@@ -74,19 +90,8 @@ def evaluate(data_folder, gt_folder, min_sup, min_size, max_gap):
             groundtruth = pickle.load(open('%s/%s/%d/groundtruth.p' % (gt_folder, value, fold), 'rb'))
             sequence_db = build_seqDB('%s/%s/%d' % (data_folder, value, fold))
 
-            '''
-                =================================================================
-                                        TRASE Algorithm
-                =================================================================
-            '''
-
-            start = time.time()
-            # seq_db, min_sup, min_size, max_gap
-            id_list, Z = TRASE(sequence_db, min_sup, min_size, max_gap)
-            TRASE_time = time.time() - start
-
-            print('\nRuntime of TRASE: %.2fs\tNo. of Patterns: %d' % (TRASE_time, len(Z)))
-            time_record.append(('TRASE', int(value), fold, '%.3f' % TRASE_time))
+            id_list = IdList()
+            id_list.build_list(sequence_db, min_sup, max_gap)
 
             # Convert the trace to other format
             sdb = []
@@ -97,12 +102,28 @@ def evaluate(data_folder, gt_folder, min_sup, min_size, max_gap):
                 sdb.append(s)
 
             # Write data to file
-            f = open("%temp.txt", "w+")
+            f = open("temp.txt", "w+")
             for trace in sdb:
                 for i in range(len(trace)):
                     f.write('%d -1 ' % trace[i])
                 f.write('-2\r\n')
             f.close()
+
+
+            '''
+                =================================================================
+                                        TRASE Algorithm
+                =================================================================
+            '''
+
+            if not skip_trase:
+                start = time.time()
+                # seq_db, min_sup, min_size, max_gap
+                id_list, Z = TRASE(sequence_db, min_sup, min_size, max_gap)
+                TRASE_time = time.time() - start
+
+                print('Runtime of TRASE: %.2fs\tNo. of Patterns: %d' % (TRASE_time, len(Z)))
+                time_record.append(('TRASE', int(value), fold, '%.3f' % TRASE_time))
 
             '''
                 =================================================================
@@ -114,28 +135,29 @@ def evaluate(data_folder, gt_folder, min_sup, min_size, max_gap):
                 start = time.time()
 
                 gb = Gapbide(sdb, int(min_sup * id_list.n_traces), 0, max_gap - 1)
-
-                q = mp.Queue()
-                p = mp.Process(target=gb.run, args=(q,))
+                #
+                # q = mp.Queue()
+                # p = mp.Process(target=gb.run, args=(q,))
+                p = mp.Process(target=gb.run)
+                p.daemon = True
                 p.start()
 
-                try:
-                    patterns = q.get(timeout=time_out)
-                except Exception:
-                    patterns = []
+                # try:
+                #     patterns = q.get(timeout=time_out)
+                # except Exception:
+                #     patterns = []
 
                 p.join(timeout=time_out)
 
                 if p.is_alive():
                     p.terminate()
                     GB_time = np.inf
-                    skip_gb = True
+                    is_timeout = True
                     print('GAP-BIDE time out at value: %s' % value)
-                    break
                 else:
                     GB_time = time.time() - start
+                    print('Runtime of Gap-Bide: %.2fs\tNo. of Patterns: %d' % (GB_time, gb.count_closed))
 
-                print('\nRuntime of Gap-Bide: %.2fs\tNo. of Patterns: %d' % (GB_time, len(patterns)))
                 time_record.append(('GAP-BIDE', int(value), fold, '%.3f' % GB_time))
 
             '''
@@ -145,7 +167,6 @@ def evaluate(data_folder, gt_folder, min_sup, min_size, max_gap):
             '''
 
             if not skip_vmsp:
-
                 start = time.time()
 
                 # Maximal Sequential Patterns
@@ -153,20 +174,20 @@ def evaluate(data_folder, gt_folder, min_sup, min_size, max_gap):
                             arguments=['%d%%' % (min_sup * 100), 100, max_gap, False])
 
                 p = mp.Process(target=spmf.run)
+                p.daemon = True
                 p.start()
-
                 p.join(timeout=time_out)
 
                 if p.is_alive():
                     p.terminate()
                     vmsp_time = np.inf
-                    skip_vmsp = True
+                    is_timeout = True
                     print('VMSP time out at value: %s' % value)
-                    break
                 else:
                     vmsp_time = time.time() - start
+                    print('Runtime of VMSP: %.2fs\tNo. of Patterns: %d' % (
+                    vmsp_time, len(spmf.to_pandas_dataframe(pickle=False))))
 
-                print('\nRuntime of VMSP: %.2fs\tNo. of Patterns: %d' % (vmsp_time, len(spmf.to_pandas_dataframe(pickle=True))))
                 time_record.append(('VMSP', int(value), fold, '%.3f' % vmsp_time))
 
             '''
@@ -181,28 +202,31 @@ def evaluate(data_folder, gt_folder, min_sup, min_size, max_gap):
 
                 # Maximal Sequential Patterns
                 spmf = Spmf("SPAM", input_filename="temp.txt", output_filename="output.txt",
-                            arguments=['%d%%' % (min_sup * 100), 10, 100, max_gap, False])
+                            arguments=['%d%%' % (min_sup * 100), 5, 100, max_gap, False])
 
                 p = mp.Process(target=spmf.run)
+                p.daemon = True
                 p.start()
-
                 p.join(timeout=time_out)
 
                 if p.is_alive():
                     p.terminate()
                     spam_time = np.inf
-                    skip_spam = True
+                    is_timeout = True
                     print('SPAM time out at value: %s' % value)
-                    break
                 else:
                     spam_time = time.time() - start
+                    print('Runtime of SPAM: %.2fs\tNo. of Patterns: %d' % (
+                        spam_time, len(spmf.to_pandas_dataframe(pickle=False))))
 
-                print('\nRuntime of SPAM: %.2fs\tNo. of Patterns: %d' % (
-                spam_time, len(spmf.to_pandas_dataframe(pickle=True))))
                 time_record.append(('SPAM', int(value), fold, '%.3f' % spam_time))
 
+            sys.stdout.flush()
 
-    return (time_record, performance_record)
+            # if is_timeout:
+            #     break
+
+    return time_record
 
 if __name__ == '__main__':
 
@@ -217,18 +241,24 @@ if __name__ == '__main__':
         =================================================================
     '''
 
-    min_sup = 0.5
+    min_sup = 0.6
     min_size = 100
     max_gap = 2
-    time_out = 500
+    time_out = 300
 
     # Test time on different number of sequences
-    time_record, performance_record = evaluate('components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size, max_gap)
+    time_record = []
+    time_record += evaluate('TRASE', 'components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size,  max_gap, time_out)
+    time_record += evaluate('VMSP', 'components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size, max_gap, time_out)
+    time_record += evaluate('SPAM', 'components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size, max_gap, time_out)
+    time_record += evaluate('GAP_BIDE', 'components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size, max_gap, time_out)
+
+
     time_df = pd.DataFrame(time_record, columns=('method', 'pat_len', 'fold', 'time'))
     time_df = time_df.astype({'time': 'double'})
-    performance_df = pd.DataFrame(performance_record, columns=('pat_len', 'fold', 'label', 'seg_count', 'precision', 'recall'))
+    # performance_df = pd.DataFrame(performance_record, columns=('pat_len', 'fold', 'label', 'seg_count', 'precision', 'recall'))
     time_df.to_csv('%s/result_pat_len.csv' % result_folder, index=False)
-    performance_df.to_csv('%s/performance_result_pat_len.csv' % result_folder, index=False)
+    # performance_df.to_csv('%s/performance_result_pat_len.csv' % result_folder, index=False)
 
     print(time_df.groupby(by=['method', 'pat_len']).agg({'time': ['mean', 'std']}))
 
