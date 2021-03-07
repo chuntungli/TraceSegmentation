@@ -61,7 +61,7 @@ class Gapbide:
         self.count_pruned = 0
         # self.patterns = []
 
-    def run(self, q_out):
+    def run(self):
         l1_patterns = self.gen_l1_patterns()
         for pattern, sup, pdb in l1_patterns:
             self.span(pattern, sup, pdb)
