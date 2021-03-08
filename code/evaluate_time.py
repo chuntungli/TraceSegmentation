@@ -118,6 +118,7 @@ def evaluate(method, data_folder, gt_folder, min_sup, min_size, max_gap, time_ou
 
             if not skip_trase:
                 start = time.time()
+
                 # seq_db, min_sup, min_size, max_gap
                 id_list, Z = TRASE(sequence_db, min_sup, min_size, max_gap)
                 TRASE_time = time.time() - start
@@ -136,18 +137,17 @@ def evaluate(method, data_folder, gt_folder, min_sup, min_size, max_gap, time_ou
 
                 gb = Gapbide(sdb, int(min_sup * id_list.n_traces), 0, max_gap - 1)
                 #
-                # q = mp.Queue()
-                # p = mp.Process(target=gb.run, args=(q,))
-                p = mp.Process(target=gb.run)
+                q = mp.Queue()
+                p = mp.Process(target=gb.run, args=(q,))
                 p.daemon = True
                 p.start()
 
-                # try:
-                #     patterns = q.get(timeout=time_out)
-                # except Exception:
-                #     patterns = []
+                try:
+                    patterns = q.get(timeout=time_out)
+                except Exception:
+                    patterns = []
 
-                p.join(timeout=time_out)
+                p.join()
 
                 if p.is_alive():
                     p.terminate()
@@ -156,7 +156,7 @@ def evaluate(method, data_folder, gt_folder, min_sup, min_size, max_gap, time_ou
                     print('GAP-BIDE time out at value: %s' % value)
                 else:
                     GB_time = time.time() - start
-                    print('Runtime of Gap-Bide: %.2fs\tNo. of Patterns: %d' % (GB_time, gb.count_closed))
+                    print('Runtime of Gap-Bide: %.2fs\tNo. of Patterns: %d' % (GB_time, len(patterns)))
 
                 time_record.append(('GAP-BIDE', int(value), fold, '%.3f' % GB_time))
 
@@ -241,18 +241,17 @@ if __name__ == '__main__':
         =================================================================
     '''
 
-    min_sup = 0.6
+    min_sup = 0.5
     min_size = 100
     max_gap = 2
-    time_out = 300
+    time_out = 500
 
     # Test time on different number of sequences
     time_record = []
     time_record += evaluate('TRASE', 'components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size,  max_gap, time_out)
     time_record += evaluate('VMSP', 'components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size, max_gap, time_out)
-    time_record += evaluate('SPAM', 'components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size, max_gap, time_out)
     time_record += evaluate('GAP_BIDE', 'components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size, max_gap, time_out)
-
+    time_record += evaluate('SPAM', 'components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size, max_gap, time_out)
 
     time_df = pd.DataFrame(time_record, columns=('method', 'pat_len', 'fold', 'time'))
     time_df = time_df.astype({'time': 'double'})

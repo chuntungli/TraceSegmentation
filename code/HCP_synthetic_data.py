@@ -176,7 +176,8 @@ def sequenceDB_and_dict(patternSet,pattern_temp,patternInSeq_mu,patternInSeq_sig
 
     return (pattern_dict, seqDB, seqDB_list)
 
-
+def noise_factor():
+    return 0.05 + (np.random.rand() * 0.1)
 
 
 '''
@@ -208,8 +209,6 @@ phaseRep_mu = 1
 phaseRep_sigma = 0
 
 n_fold = 5
-
-noise_factor = 0.2
 
 '''
     =====================================================================
@@ -249,8 +248,9 @@ for pat_len in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
         '''
         pattern_set, pattern_no = pattern_pool(pattern, phase, patternRep_mu, patternRep_sigma, len(pattern), fold)
         sequence_number_in_db = math.floor(len(pattern_no) / patternInSeq_mu)
+
         pattern_dictionary, sequence_database, sequence_database_list = \
-            sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, np.random.rand() * noise_factor)
+            sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, noise_factor())
 
         # Write with pickle
         folder = 'components/synthetic/pat_len/%03d/%d' % (pat_len, fold)
@@ -298,7 +298,7 @@ for seq_len in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
         pattern_set, pattern_no = pattern_pool(pattern, phase, patternRep_mu, patternRep_sigma, len(pattern), fold)
         sequence_number_in_db = math.floor(len(pattern_no) / patternInSeq_mu)
         pattern_dictionary, sequence_database, sequence_database_list = \
-            sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, np.random.rand() * noise_factor)
+            sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, noise_factor())
 
         # Write with pickle
         folder = 'components/synthetic/seq_len/%03d/%d' % (seq_len, fold)
@@ -349,7 +349,7 @@ for n_seq in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
         pattern_set, pattern_no = pattern_pool(pattern, phase, patternRep_mu, patternRep_sigma, len(pattern), fold)
         sequence_number_in_db = math.floor(len(pattern_no) / patternInSeq_mu)
         pattern_dictionary, sequence_database, sequence_database_list = \
-            sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, np.random.rand() * noise_factor)
+            sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, noise_factor())
 
         # Write with pickle
         folder = 'components/synthetic/n_seq/%03d/%d' % (n_seq, fold)
@@ -399,7 +399,7 @@ for n_seq in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
 #     pattern_set, pattern_no = pattern_pool(pattern, phase, patternRep_mu, patternRep_sigma, len(pattern), fold)
 #     sequence_number_in_db = math.floor(len(pattern_no) / patternInSeq_mu)
 #     pattern_dictionary, sequence_database, sequence_database_list = \
-#         sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, np.random.rand() * noise_factor)
+#         sequenceDB_and_dict(pattern_set, pattern_no, patternInSeq_mu, patternInSeq_sigma, phase, sequence_number_in_db, fold, noise_factor())
 #
 #     # Write with pickle
 #     folder = 'components/synthetic/performance/%d' % fold
