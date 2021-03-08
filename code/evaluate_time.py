@@ -76,8 +76,8 @@ def evaluate(method, data_folder, gt_folder, min_sup, min_size, max_gap, time_ou
         if not value.isdigit():
             continue
 
-        # if is_timeout:
-        #     break
+        if is_timeout:
+            break
 
         folds = sorted(os.listdir('%s/%s' % (data_folder, value)))
 
@@ -223,8 +223,8 @@ def evaluate(method, data_folder, gt_folder, min_sup, min_size, max_gap, time_ou
 
             sys.stdout.flush()
 
-            # if is_timeout:
-            #     break
+            if is_timeout:
+                break
 
     return time_record
 

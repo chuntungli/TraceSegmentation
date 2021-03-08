@@ -177,7 +177,7 @@ def sequenceDB_and_dict(patternSet,pattern_temp,patternInSeq_mu,patternInSeq_sig
     return (pattern_dict, seqDB, seqDB_list)
 
 def noise_factor():
-    return 0.05 + (np.random.rand() * 0.1)
+    return 0.05 + (np.random.rand() * 0.05)
 
 
 '''
