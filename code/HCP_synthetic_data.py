@@ -176,8 +176,9 @@ def sequenceDB_and_dict(patternSet,pattern_temp,patternInSeq_mu,patternInSeq_sig
 
     return (pattern_dict, seqDB, seqDB_list)
 
-def noise_factor():
-    return 0.05 + (np.random.rand() * 0.05)
+def noise_factor(max_noise = 0.1):
+    min_noise = 0.05
+    return min_noise + (np.random.rand() * (max_noise - min_noise))
 
 
 '''
@@ -277,10 +278,6 @@ patternNum_sigma = patternNum_mu * 0.1
 patternRep_mu = 20
 patternRep_sigma = patternRep_mu * 0.1
 
-method = method_pool(methodUniqueAmount, seed)
-phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, seed)
-pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, seed)
-
 for seq_len in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
 
     # Number of patterns
@@ -289,6 +286,10 @@ for seq_len in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
     # Distribution of number of patterns in sequences
     patternInSeq_mu = patternUniqueAmount
     patternInSeq_sigma = 0.1 * patternInSeq_mu
+
+    method = method_pool(methodUniqueAmount, seed)
+    phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, seed)
+    pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, seed)
 
     for fold in range(n_fold):
 
@@ -331,10 +332,6 @@ phaseUniqueAmount = int(patternUniqueAmount * (patternNum_mu + 1))
 patternInSeq_mu = 20
 patternInSeq_sigma = patternInSeq_mu * 0.1
 
-method = method_pool(methodUniqueAmount, seed)
-phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, seed)
-pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, seed)
-
 for n_seq in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
 
     # Distribution of number of patterns repeated
@@ -342,6 +339,10 @@ for n_seq in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
     patternRep_sigma = n_seq * 0.1
 
     for fold in range(n_fold):
+
+        method = method_pool(methodUniqueAmount, seed)
+        phase, phase_norm_int = phase_pool(method, methodNumInPhase_mu, methodNumInPhase_sigma, phaseUniqueAmount, seed)
+        pattern = pattern_pool_phase_id(phase, phase_norm_int, patternNum_mu, patternNum_sigma, patternUniqueAmount, seed)
 
         '''
             Parameters for generating sequences
