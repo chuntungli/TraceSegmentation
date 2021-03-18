@@ -26,13 +26,13 @@ from pygapbide import *
 
 
 archive_url = os.getcwd() + '/components'
-# apps = os.listdir(archive_url)
-apps = ['synthetic']
+apps = os.listdir(archive_url)
+# apps = ['synthetic']
 
 threshold = 0.2
-min_support = 0.2
-min_method = 5
-max_gap = 1
+min_sup = 0.5
+min_size = 20
+max_gap = 3
 
 for app in apps:
     if app.startswith(','):
@@ -88,6 +88,9 @@ for app in apps:
                 sequence.append(trace[i])
         sequence_db.append(sequence)
 
+    groundtruth = sequence_db[6:9]
+    sequence_db = sequence_db[:6] + sequence_db[10:]
+
     '''
         =================================================================
                                 Algorithm Begin
@@ -97,50 +100,14 @@ for app in apps:
     # starting time
     start = time.time()
 
-    # Build ID List
-    id_list = IdList()
-    id_list.build_list(sequence_db, max_gap, min_support)
+    id_list, Z = TRASE(sequence_db, min_sup, min_size, max_gap, print_status=True)
 
-    # TEMP
-    temp = []
-    for phase in sequence_db[2]:
-        temp.append(id_list.ids.index(phase))
-    print(temp)
-    # END TEMP
-
-    # Find Closed Sequential Pattern
-    Z = []  # Maximum Sequential Pattern
-
-    # Generate and sort search_space by support
-    search_space = np.argsort(list(id_list.phase_support.values()))[::-1]
-
-    # Ignore Ids less than min_support support
-    search_space = list(search_space[:np.sum(np.array(list(id_list.phase_support.values())) >= min_support)])
-
-    while len(search_space) > 0:
-        que_idx = search_space.pop(0)
-        patterns = id_list.extend_pattern(que_idx, Z)
-
-        # Check if pattern satisfy minimum number of methods
-        for i in range(len(patterns) - 1, -1, -1):
-            no_of_methods = sum([len(id_list.ids[x]) for x in patterns[i].pattern])
-            if no_of_methods < min_method:
-                del patterns[i]
-
-        # Keep closed pattern only
-        for i in range(len(patterns) - 1, -1, -1):
-            for j in range(len(patterns)):
-                if i == j:
-                    continue
-                # p[i] and p[j] have the same support and p[i] is a subsequence of p[j]
-                if (patterns[i].support == patterns[j].support) & (is_subsequence(patterns[i].pattern, patterns[j].pattern)):
-                    # print('p[%d] is a subsequence of p[%d]: (%.2f: %s) and (%.2f: %s)' % (
-                    #     i, j, patterns[i].support, patterns[i].pattern, patterns[j].support, patterns[j].pattern))
-                    del patterns[i]
-                    break
-
-        # Pattern is Valid and added to Z
-        Z += patterns
+    # # TEMP
+    # temp = []
+    # for phase in sequence_db[2]:
+    #     temp.append(id_list.ids.index(phase))
+    # print(temp)
+    # # END TEMP
 
     # end time
     end = time.time()
@@ -166,8 +133,8 @@ for app in apps:
     Z = np.array(sorted(Z, key=lambda pattern: pattern.support, reverse=True))
 
     # Prnt closed patterns
-    for pattern in Z:
-        print('%.2f\t%.100s' % (pattern.support, pattern.pattern))
+    # for pattern in Z:
+    #     print('%.2f\t%.100s' % (pattern.support, pattern.pattern))
 
     # Vertex list contains the weight of the phase
     # Edge list contains relationship among phases if two phases are overlapped
@@ -189,7 +156,7 @@ for app in apps:
         adjacency_list[edge[0]].append(edge[1])
     adjacency_list = np.array(adjacency_list)
 
-    subgraphs = _generateSubgraphs(vertex_list, adjacency_list)
+    subgraphs = generateSubgraphs(vertex_list, adjacency_list)
 
     solution = np.zeros(len(vertex_list), dtype=bool)
     for subgraph in subgraphs:
@@ -204,9 +171,8 @@ for app in apps:
     patterns = Z[solution]
 
     # Print Pattern Result
-    for pattern in patterns:
-        print('%.2f\t%s' % (pattern.support, pattern.pattern))
-
+    # for pattern in patterns:
+    #     print('%.2f\t%s' % (pattern.support, pattern.pattern))
 
     # for pattern in patterns:
     #     phases = []
@@ -238,15 +204,23 @@ for app in apps:
     # Perform TF-IDF
     for i in range(len(patterns)):
         phases = []
-        for phase in patterns[i].pattern:
-            phases.append(id_list.ids[phase])
-        print('%.2f\t%s' % (patterns[i].support, phases))
+        # for phase in patterns[i].pattern:
+        #     phases.append(id_list.ids[phase])
+        # print('%.2f\t%s' % (patterns[i].support, phases))
+        print('%.2f\t%s' % (patterns[i].support, patterns[i].pattern))
 
         vectorizer = TfidfVectorizer(use_idf=True)
         tfIdf = vectorizer.fit_transform(pattern_methods[i])
         df = pd.DataFrame(tfIdf[0].T.todense(), index=vectorizer.get_feature_names(), columns=["TF-IDF"])
         df = df.sort_values('TF-IDF', ascending=False)
         print(df.head(10))
+
+    # Print Groundtruth
+    for i in range(len(groundtruth)):
+        pattern = []
+        for phase in groundtruth[i]:
+            pattern.append(id_list.ids.index(phase))
+        print('%d: %s' % (i, pattern))
 
 
 

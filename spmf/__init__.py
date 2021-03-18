@@ -43,6 +43,7 @@ class Spmf:
         self.patterns_ = []
         self.df_ = None
         self.memory_ = memory
+        self.is_timeout = False
 
     def handle_input(self, input_direct, input_filename, input_type):
         if input_filename:
@@ -80,11 +81,12 @@ class Spmf:
         os.rename(name, name + file_ending)
         return name + file_ending
 
-    def run(self):
+    def run(self, timeout):
         """
         Start the SPMF process
         Calls the Java binary with the previously specified parameters
         """
+        self.is_timeout = False
         subprocess_arguments = ["java"]
 
         # http://www.philippe-fournier-viger.com/spmf/index.php?link=FAQ.php#memory
@@ -99,11 +101,16 @@ class Spmf:
              self.input_, self.output_])
         subprocess_arguments.extend(self.arguments_)
 
-        proc = subprocess.check_output(subprocess_arguments)
-        proc_output = proc.decode()
-        # print(proc_output)
-        if "java.lang.IllegalArgumentException" in proc_output:
-            raise TypeError("java.lang.IllegalArgumentException")
+        try:
+            proc = subprocess.check_output(subprocess_arguments, timeout=timeout)
+        except Exception as e:
+            self.is_timeout = True
+        else:
+            proc_output = proc.decode()
+            # print(proc_output)
+            if "java.lang.IllegalArgumentException" in proc_output:
+                # raise TypeError("java.lang.IllegalArgumentException")
+                print('Error Decoding Output')
 
     def parse_output(self):
         """

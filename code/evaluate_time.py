@@ -85,6 +85,8 @@ def evaluate(method, data_folder, gt_folder, min_sup, min_size, max_gap, time_ou
         print('Running Experiment on: %s - %s\n' % (data_folder, value))
 
         for fold in folds:
+            if not fold.isdigit():
+                continue
             fold = int(fold)
 
             groundtruth = pickle.load(open('%s/%s/%d/groundtruth.p' % (gt_folder, value, fold), 'rb'))
@@ -147,7 +149,7 @@ def evaluate(method, data_folder, gt_folder, min_sup, min_size, max_gap, time_ou
                 except Exception:
                     patterns = []
 
-                p.join()
+                p.join(timeout=time_out)
 
                 if p.is_alive():
                     p.terminate()
@@ -172,14 +174,14 @@ def evaluate(method, data_folder, gt_folder, min_sup, min_size, max_gap, time_ou
                 # Maximal Sequential Patterns
                 spmf = Spmf("VMSP", input_filename="temp.txt", output_filename="output.txt",
                             arguments=['%d%%' % (min_sup * 100), 100, max_gap, False])
+                spmf.run(time_out)
 
-                p = mp.Process(target=spmf.run)
-                p.daemon = True
-                p.start()
-                p.join(timeout=time_out)
+                # p = mp.Process(target=spmf.run, args=(time_out,))
+                # p.daemon = True
+                # p.start()
+                # p.join()
 
-                if p.is_alive():
-                    p.terminate()
+                if spmf.is_timeout:
                     vmsp_time = np.inf
                     is_timeout = True
                     print('VMSP time out at value: %s' % value)
@@ -204,13 +206,13 @@ def evaluate(method, data_folder, gt_folder, min_sup, min_size, max_gap, time_ou
                 spmf = Spmf("SPAM", input_filename="temp.txt", output_filename="output.txt",
                             arguments=['%d%%' % (min_sup * 100), 5, 100, max_gap, False])
 
-                p = mp.Process(target=spmf.run)
-                p.daemon = True
-                p.start()
-                p.join(timeout=time_out)
+                spmf.run(time_out)
+                # p = mp.Process(target=spmf.run, args=(time_out,))
+                # p.daemon = True
+                # p.start()
+                # p.join()
 
-                if p.is_alive():
-                    p.terminate()
+                if spmf.is_timeout:
                     spam_time = np.inf
                     is_timeout = True
                     print('SPAM time out at value: %s' % value)
@@ -241,17 +243,67 @@ if __name__ == '__main__':
         =================================================================
     '''
 
-    min_sup = 0.5
-    min_size = 100
+    min_sup = 0.6
+    min_size = 50
     max_gap = 2
-    time_out = 500
+    time_out = 5
+
+    '''
+        =================================================================
+                            Evaluate Different Max Gaps
+        =================================================================
+    '''
+
+    dt_folder = 'components/synthetic/performance'
+    gt_folder = 'groundtruth/synthetic/performance'
+
+    time_record = []
+    timeout_trase = timeout_vmsp = timeout_gapbide = timeout_spam = False
+    for gap in np.arange(1, 6):
+        records = []
+        if not timeout_trase:
+            result = evaluate('TRASE', dt_folder, gt_folder, min_sup, min_size, gap, time_out)
+            records += result
+            timeout_trase = (len(result) != 5)
+        if not timeout_vmsp:
+            result = evaluate('VMSP', dt_folder, gt_folder, min_sup, min_size, gap, time_out)
+            records += result
+            timeout_vmsp = (len(result) != 5)
+        if not timeout_gapbide:
+            result = evaluate('GAP_BIDE', dt_folder, gt_folder, min_sup, min_size, gap, time_out)
+            records += result
+            timeout_gapbide = (len(result) != 5)
+        if not timeout_spam:
+            result = evaluate('SPAM', dt_folder, gt_folder, min_sup, min_size, gap, time_out)
+            records += result
+            timeout_spam = (len(result) != 5)
+
+        for i in range(len(records)):
+            record = list(records[i])
+            record[1] = gap
+            records[i] = tuple(record)
+        time_record += records
+
+    time_df = pd.DataFrame(time_record, columns=('method', 'max_gap', 'fold', 'time'))
+    time_df = time_df.astype({'time': 'double'})
+    time_df.to_csv('%s/result_max_gap.csv' % result_folder, index=False)
+    print(time_df.groupby(by=['method', 'max_gap']).agg({'time': ['mean', 'std']}))
+
+    '''
+        =================================================================
+                            Evaluate Different Max Gaps
+        =================================================================
+    '''
+
+    dt_folder = 'components/synthetic/pat_len'
+    gt_folder = 'groundtruth/synthetic/pat_len'
 
     # Test time on different number of sequences
     time_record = []
-    time_record += evaluate('TRASE', 'components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size,  max_gap, time_out)
-    time_record += evaluate('VMSP', 'components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size, max_gap, time_out)
-    time_record += evaluate('GAP_BIDE', 'components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size, max_gap, time_out)
-    time_record += evaluate('SPAM', 'components/synthetic/pat_len', 'groundtruth/synthetic/pat_len', min_sup, min_size, max_gap, time_out)
+    time_record += evaluate('TRASE', dt_folder, gt_folder, min_sup, min_size,  max_gap, time_out)
+    time_record += evaluate('VMSP', dt_folder, gt_folder, min_sup, min_size, max_gap, time_out)
+    time_record += evaluate('GAP_BIDE', dt_folder, gt_folder, min_sup, min_size, max_gap, time_out)
+    time_record += evaluate('SPAM', dt_folder, gt_folder, min_sup, min_size, max_gap, time_out)
 
     time_df = pd.DataFrame(time_record, columns=('method', 'pat_len', 'fold', 'time'))
     time_df = time_df.astype({'time': 'double'})
@@ -267,30 +319,40 @@ if __name__ == '__main__':
         =================================================================
     '''
 
+    dt_folder = 'components/synthetic/n_seq'
+    gt_folder = 'groundtruth/synthetic/n_seq'
+
     # Test time on different number of sequences
-    time_record, performance_record = evaluate('components/synthetic/n_seq', 'groundtruth/synthetic/n_seq', min_sup, min_size, max_gap)
+    time_record = []
+    time_record += evaluate('TRASE', dt_folder, gt_folder, min_sup, min_size, max_gap, time_out)
+    time_record += evaluate('VMSP', dt_folder, gt_folder, min_sup, min_size, max_gap, time_out)
+    time_record += evaluate('GAP_BIDE', dt_folder, gt_folder, min_sup, min_size, max_gap, time_out)
+    time_record += evaluate('SPAM', dt_folder, gt_folder, min_sup, min_size, max_gap, time_out)
 
     time_df = pd.DataFrame(time_record, columns=('method', 'n_seq', 'fold', 'time'))
     time_df = time_df.astype({'time': 'double'})
     time_df.to_csv('%s/result_n_seq.csv' % result_folder, index=False)
-    performance_df = pd.DataFrame(performance_record, columns=('n_seq', 'fold', 'label', 'seg_count', 'precision', 'recall'))
-    performance_df.to_csv('%s/performance_result_n_seq.csv' % result_folder, index=False)
     print(time_df.groupby(by=['method', 'n_seq']).agg({'time': ['mean', 'std']}))
 
     '''
         =================================================================
-                        Evaluate Different No. of Sequences
+                        Evaluate Different Sequence Length
         =================================================================
     '''
 
+    dt_folder = 'components/synthetic/seq_len'
+    gt_folder = 'groundtruth/synthetic/seq_len'
+
     # Test time on different number of sequences
-    time_record, performance_record = evaluate('components/synthetic/seq_len', 'groundtruth/synthetic/seq_len', min_sup, min_size, max_gap)
+    time_record = []
+    time_record += evaluate('TRASE', dt_folder, gt_folder, min_sup, min_size, max_gap, time_out)
+    time_record += evaluate('VMSP', dt_folder, gt_folder, min_sup, min_size, max_gap, time_out)
+    time_record += evaluate('GAP_BIDE', dt_folder, gt_folder, min_sup, min_size, max_gap, time_out)
+    time_record += evaluate('SPAM', dt_folder, gt_folder, min_sup, min_size, max_gap, time_out)
 
     time_df = pd.DataFrame(time_record, columns=('method', 'seq_len', 'fold', 'time'))
     time_df = time_df.astype({'time': 'double'})
     time_df.to_csv('%s/result_seq_len.csv' % result_folder, index=False)
-    performance_df = pd.DataFrame(performance_record, columns=('seq_len', 'fold', 'label', 'seg_count', 'precision', 'recall'))
-    performance_df.to_csv('%s/performance_result_seq_len.csv' % result_folder, index=False)
     print(time_df.groupby(by=['method', 'seq_len']).agg({'time': ['mean', 'std']}))
 
 

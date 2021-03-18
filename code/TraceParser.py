@@ -217,29 +217,29 @@ if __name__ == '__main__':
             # Read with pickle
             # components = pickle.load(open('components_%s_%s.p' % (app, trace), "rb"))
 
-            # For analysis
-            folder = 'plots/%s/' % app
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-            pos = graphviz_layout(G, prog='dot')
-            fig = plt.figure(figsize=(len(components), 7), dpi=30)
-            # nx.draw(graph, pos, **options)
-            nx.draw_networkx_edges(G, pos, edge_color='dimgray', width=1)
-            nx.draw_networkx_nodes(G, pos, node_color='skyblue', node_size=200)
-            nx.draw_networkx_labels(G, pos, labels, font_size=8)
-            nx.draw_networkx_edge_labels(G, pos, edge_labels=nx.get_edge_attributes(G, 'weight'))
-            plt.title('%s %s' % (app, trace))
-            plt.tight_layout()
-            fig.savefig('plots/%s/%s_DCT.pdf' % (app, trace), dpi=30, bbox_inches="tight")
-            plt.show()
-            plt.close(fig)
-            components = [i[0] for i in groupby(components)]
-            folder = 'csv/%s' % app
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-            with open('%s/%s.csv' % (folder, trace.split('.')[0]), 'w') as data_csv:
-                csv_writer = csv.writer(data_csv, delimiter=',')
-                csv_writer.writerows(components)
+            # # For analysis
+            # folder = 'plots/%s/' % app
+            # if not os.path.exists(folder):
+            #     os.makedirs(folder)
+            # pos = graphviz_layout(G, prog='dot')
+            # fig = plt.figure(figsize=(len(components), 7), dpi=30)
+            # # nx.draw(graph, pos, **options)
+            # nx.draw_networkx_edges(G, pos, edge_color='dimgray', width=1)
+            # nx.draw_networkx_nodes(G, pos, node_color='skyblue', node_size=200)
+            # nx.draw_networkx_labels(G, pos, labels, font_size=8)
+            # nx.draw_networkx_edge_labels(G, pos, edge_labels=nx.get_edge_attributes(G, 'weight'))
+            # plt.title('%s %s' % (app, trace))
+            # plt.tight_layout()
+            # fig.savefig('plots/%s/%s_DCT.pdf' % (app, trace), dpi=30, bbox_inches="tight")
+            # plt.show()
+            # plt.close(fig)
+            # components = [i[0] for i in groupby(components)]
+            # folder = 'csv/%s' % app
+            # if not os.path.exists(folder):
+            #     os.makedirs(folder)
+            # with open('%s/%s.csv' % (folder, trace.split('.')[0]), 'w') as data_csv:
+            #     csv_writer = csv.writer(data_csv, delimiter=',')
+            #     csv_writer.writerows(components)
 
 
             '''

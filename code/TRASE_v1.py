@@ -107,9 +107,10 @@ class IdList:
             self.phase_support[i] = np.sum(~np.isnan(self.idList[i])) / self.n_traces
 
     # Extend pattern by depth-first-search manner
-    def __extend_pattern(self, closed_patterns, pattern, l_loc, r_loc, que_support, best_score):
+    def __extend_pattern(self, closed_patterns, pattern, l_loc, r_loc, que_support, best_score, print_status=False):
         # print('\rExplored: %d\tPruned: %d\tExploring: %.2f - %s' % (self.explored, self.pruned, que_support, pattern), end='')
-        # print('\rTRASE - Explored: %d\tPruned: %d' % (self.explored, self.pruned), end='')
+        if print_status:
+            print('\rTRASE - Explored: %d\tPruned: %d' % (self.explored, self.pruned), end='')
         self.explored += 1
 
         is_closed = True
@@ -179,7 +180,7 @@ class IdList:
 
     # Find maximum sequential pattern given the starting element
     # Returns: Pattern, l_loc, r_loc, support
-    def extend_pattern(self, que_idx, Z):
+    def extend_pattern(self, que_idx, Z, print_status=False):
         closed_patterns = set()
         que_idlist = self.idList[que_idx]
         que_support = self.phase_support[que_idx]
@@ -188,7 +189,7 @@ class IdList:
             if (z.support >= que_support) & (que_idx in z.pattern):
                 return []
 
-        self.__extend_pattern(closed_patterns, [que_idx], que_idlist, que_idlist, que_support, 0)
+        self.__extend_pattern(closed_patterns, [que_idx], que_idlist, que_idlist, que_support, 0, print_status)
         return list(closed_patterns)
 
 def distance(com1, com2):
@@ -376,7 +377,7 @@ def MWIS(vertexWeight, adjacencyList):
     return _BBND(vertexWeight, adjacencyList, LB, X)
 
 
-def TRASE(seq_db, min_sup, min_size=1, max_gap=1, out_q=None):
+def TRASE(seq_db, min_sup, min_size=1, max_gap=1, out_q=None, print_status=False):
     # Build ID List
     id_list = IdList()
     id_list.build_list(seq_db, min_sup, max_gap)
