@@ -46,6 +46,9 @@ class IdList:
         self.pruned = 0
         self.explored = 0
 
+    def add_phase(self, phase):
+        self.__add_phase(phase)
+
     def __add_phase(self, phase):
         if phase in self.ids:
             return

@@ -17,6 +17,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from TRASE_v1 import *
 from pygapbide import *
 
+def safe_div(a,b):
+    if a == 0 or b == 0:
+        return 0
+    else:
+        return a/b
 
 '''
         =================================================================
@@ -30,9 +35,9 @@ apps = os.listdir(archive_url)
 # apps = ['synthetic']
 
 threshold = 0.2
-min_sup = 0.5
-min_size = 20
-max_gap = 3
+min_sup = 0.2
+min_size = 30
+max_gap = 2
 
 for app in apps:
     if app.startswith(','):
@@ -88,8 +93,26 @@ for app in apps:
                 sequence.append(trace[i])
         sequence_db.append(sequence)
 
-    groundtruth = sequence_db[6:9]
-    sequence_db = sequence_db[:6] + sequence_db[10:]
+    # Construct groundtruth and sequence_db
+    if app == 'ogden':
+        labels = {'add': [7,22,23],
+                  'edit': [8,24,25],
+                  'delete': [9,26,27]}
+    elif app == 'abhi':
+        labels = {'add': [3,41,42],
+                  'edit': [4,43,44],
+                  'delete': [5,45,46]}
+    remove_indices = []
+    groundtruth = {}
+    for label in labels:
+        indices = labels[label]
+        groundtruth[label] = []
+        for idx in indices:
+            remove_indices.append(idx-1)
+            groundtruth[label].append(sequence_db[idx-1])
+    remove_indices = sorted(remove_indices)[::-1]
+    for idx in remove_indices:
+        del sequence_db[idx]
 
     '''
         =================================================================
@@ -171,19 +194,15 @@ for app in apps:
     patterns = Z[solution]
 
     # Print Pattern Result
-    # for pattern in patterns:
-    #     print('%.2f\t%s' % (pattern.support, pattern.pattern))
+    for pattern in patterns:
+        print('%.2f\t%s' % (pattern.support, pattern.pattern))
 
-    # for pattern in patterns:
-    #     phases = []
-    #     for phase in pattern[0]:
-    #         phases.append(id_list.ids[phase])
-    #     print('%.2f\t%s' % (pattern[2], phases))
+    # Generate Human Readable labels for each class prediction
 
     # Read method list and group names by patterns
     methods_df = pd.read_csv('method list/%s.csv' % app, header=None, names=('index', 'method_id'))
     methods = []
-    for i,row in methods_df.iterrows():
+    for i, row in methods_df.iterrows():
         words = []
         # Remove text in bracket
         string = re.sub(r'\([^)]*\)', '', row.method_id)
@@ -197,32 +216,108 @@ for app in apps:
     pattern_methods = []
     for pattern in patterns:
         documents = []
-        for phase in pattern.pattern:
-            documents.append(' '.join(methods[phase]))
+        for pid in pattern.pattern:
+            for method_ids in id_list.ids[pid]:
+                documents.append(' '.join(methods[method_ids]))
         pattern_methods.append(documents)
 
-    # Perform TF-IDF
+    gt_dict = {}
+    pt_dict = {}
+    pt_methods = {}
+    pt_count = {}
+
+    # Construct gt_dict
+    for label in labels:
+        gt_patterns = []
+        # Phase Level
+        for gt_pattern in groundtruth[label]:
+            for phase in gt_pattern:
+                try:
+                    gt_patterns.append(id_list.ids.index(phase))
+                except Exception as e:
+                    id_list.add_phase(phase)
+                    gt_patterns.append(id_list.ids.index(phase))
+        gt_dict[label] = set(gt_patterns)
+        # Method Level
+        # for gt_pattern in groundtruth[label]:
+        #     gt_patterns.append(set.union(*gt_pattern))
+        # gt_dict[label] = set.intersection(*gt_patterns)
+        pt_dict[label] = set()
+        pt_methods[label] = []
+        pt_count[label] = 0
+
     for i in range(len(patterns)):
-        phases = []
-        # for phase in patterns[i].pattern:
-        #     phases.append(id_list.ids[phase])
-        # print('%.2f\t%s' % (patterns[i].support, phases))
-        print('%.2f\t%s' % (patterns[i].support, patterns[i].pattern))
+
+        # Phase Level
+        ml_pattern = set(patterns[i].pattern)
+
+        # Method Level
+        # ml_pattern = []
+        # for pid in patterns[i].pattern:
+        #     ml_pattern.append(id_list.ids[pid])
+        # ml_pattern = set().union(*ml_pattern)
+
+        # Find the best matching groundtruth
+        accuracy = dict()
+        for label in labels:
+            accuracy[label] = len(gt_dict[label].intersection(ml_pattern)) / len(ml_pattern)
+
+        prediction = max(accuracy, key=accuracy.get)
+        pt_dict[prediction] = pt_dict[prediction].union(ml_pattern)
+        pt_count[prediction] += 1
 
         vectorizer = TfidfVectorizer(use_idf=True)
         tfIdf = vectorizer.fit_transform(pattern_methods[i])
         df = pd.DataFrame(tfIdf[0].T.todense(), index=vectorizer.get_feature_names(), columns=["TF-IDF"])
         df = df.sort_values('TF-IDF', ascending=False)
-        print(df.head(10))
+        pt_methods[prediction].append(set(df.index[:5]))
 
-    # Print Groundtruth
-    for i in range(len(groundtruth)):
-        pattern = []
-        for phase in groundtruth[i]:
-            pattern.append(id_list.ids.index(phase))
-        print('%d: %s' % (i, pattern))
+    # Construct Confusion Matrix
+    results = []
+    for label in labels:
 
+        # Phase Level
+        pt_set = []
+        gt_set = []
+        for pid in pt_dict[label]:
+            pt_set += id_list.ids[pid]
+        for pid in gt_dict[label]:
+            gt_set += id_list.ids[pid]
+        pt_set = set(pt_set)
+        gt_set = set(gt_set)
 
+        # # Method Level
+        # pt_set = pt_dict[label]
+        # gt_set = gt_dict[label]
+
+        TP = len(gt_set.intersection(pt_set))
+        FP = len(pt_set.difference(gt_set))
+        FN = len(gt_set.difference(pt_set))
+
+        precision = safe_div(TP, (TP + FP)) * 100
+        recall = safe_div(TP, (TP + FN)) * 100
+        f1 = 2 * safe_div((precision * recall), (precision + recall))
+
+        results.append((label, pt_count[label], precision, recall, f1))
+    result_df = pd.DataFrame(results, columns=['class', 'count', 'precision', 'recall', 'f1'])
+
+    print(result_df)
+    print(pt_methods)
+
+    # Print keywords from groundtruth
+    gt_methods = {}
+    gt_keywords = {}
+    for label in gt_dict:
+        gt_methods[label] = []
+        for mid in gt_dict[label]:
+            gt_methods[label].append(methods[mid])
+
+        vectorizer = TfidfVectorizer(use_idf=True)
+        tfIdf = vectorizer.fit_transform(gt_methods[label])
+        df = pd.DataFrame(tfIdf[0].T.todense(), index=vectorizer.get_feature_names(), columns=["TF-IDF"])
+        df = df.sort_values('TF-IDF', ascending=False)
+        gt_keywords[label].append(set(df.index[:5]))
+    print(gt_keywords)
 
     '''
             Testing Simple Approach With VMSP
