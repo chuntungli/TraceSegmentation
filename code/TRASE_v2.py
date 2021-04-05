@@ -140,7 +140,10 @@ class IdList:
 
         if is_closed:
             # score = que_support * len(pattern)
-            score = que_support * np.log(sum([len(self.ids[x]) for x in pattern]))
+            score = que_support * np.sum([len(self.ids[x]) for x in pattern])
+
+            # score = que_support * np.log(len(pattern))
+            # score = que_support * np.log(sum([len(self.ids[x]) for x in pattern]))
             if score > best_score:
                 best_score = score
             else:

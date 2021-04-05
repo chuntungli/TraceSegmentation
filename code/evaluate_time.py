@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from spmf import Spmf
 from itertools import groupby
 
-from TRASE_v1 import *
+from TRASE_v2 import *
 from pygapbide import *
 
 def build_seqDB(folder_path):
